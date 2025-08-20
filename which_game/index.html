@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Votación de Juegos - Overlay OBS</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="overlay" id="overlay">
+      <div class="header">
+        <div class="title">
+          <span>Votación del próximo juego</span>
+          <span class="badge" id="roundBadge">activa</span>
+        </div>
+      </div>
+
+      <div class="grid" id="grid">
+        <!-- Tarjetas de juegos (se rellenan por JS) -->
+      </div>
+
+      <div class="footer">
+        <div class="hint" id="hint">Vota con !1-!4 en el chat</div>
+        <div class="status" id="status">Esperando votos…</div>
+      </div>
+
+    </div>
+    <div class="minimized" id="resetBtn" style="display:none; cursor: pointer;">Reset encuesta</div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
+
+
