@@ -156,7 +156,7 @@ html, body {
 }
 
 .game-title {
-  font-size: clamp(20px, 2.6vw, 24px);
+  font-size: 26px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
