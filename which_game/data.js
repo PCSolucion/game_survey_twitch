@@ -2,8 +2,8 @@
 // Puedes usar URLs absolutas (http/https) o rutas locales relativas al archivo `index.html`
 // Deben ser exactamente 4 elementos
 window.OPTIONS_DATA = [
-  { title: "RYSE: SON OF ROME", image: "https://e.snmc.io/lk/f/x/08fd0d38f3c3c010942d61a29696bff6/10575234" },
-  { title: "FINAL FANTASY X", image: "https://i.etsystatic.com/13594991/r/il/bc77fc/2465009882/il_1588xN.2465009882_32pb.jpg" },
-  { title: "DEAD SPACE (2008)", image: "https://cdn.mos.cms.futurecdn.net/KdwGceaYPmKiSbLTp738rS.jpg" },
-  { title: "BIOSHOCK INFINITE", image: "https://erdorin.org/wp-content/uploads/2013/09/Bioshock-Infinite.jpg" },
+  { title: "DEAD SPACE 2", image: "https://cdn1.epicgames.com/spt-assets/3d281cbdd65142acbf834aeb20f7bc0c/dead-space-2-19wrn.jpg" },
+  { title: "WOLFENSTEIN: THE NEW ORDER", image: "https://image.api.playstation.com/vulcan/ap/rnd/202009/3004/V6rH21cN1JtpOt6Hk9wFBrJS.png" },
+  { title: "METRO 2033", image: "https://m.media-amazon.com/images/M/MV5BMjhiOTVjZWYtODE2MS00NjYxLTk5NTItMDYyYzNlMzE0MjQwXkEyXkFqcGc@._V1_.jpg" },
+  { title: "ASSASINS CREED ORIGINS", image: "https://i.pinimg.com/736x/e3/b9/9c/e3b99cac1ee94a9407fe41866a16e397.jpg" },
 ];
