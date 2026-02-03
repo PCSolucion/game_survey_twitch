@@ -19,7 +19,9 @@ const storageKeys = {
   voters: `wg_${config.channelName}_voters`,
   voterNames: `wg_${config.channelName}_voter_names`,
 
-  weights: `wg_${config.channelName}_weights`, // Nuevas claves para guardar pesos
+  weights: `wg_${config.channelName}_weights`,
+  levels: `wg_${config.channelName}_levels`, // Nueva clave para niveles
+  extraVotes: `wg_${config.channelName}_extra_votes`, // Nueva clave para votos extra diarios
 };
 
 // Estado
@@ -30,6 +32,8 @@ let userToChoice = new Map();
 let userToDisplayName = new Map();
 
 let userToWeight = new Map(); // Mapa de pesos de voto por usuario
+let userToLevel = new Map();  // Mapa de niveles por usuario
+let userToExtraVoteDate = new Map(); // Mapa de usuario -> fecha del último voto extra
 
 // Elementos del DOM
 const overlayEl = document.getElementById("overlay");
@@ -81,9 +85,13 @@ function saveState() {
     localStorage.setItem(storageKeys.voters, JSON.stringify(votersObj));
     const voterNamesObj = Object.fromEntries(userToDisplayName.entries());
     localStorage.setItem(storageKeys.voterNames, JSON.stringify(voterNamesObj));
-    // Guardar pesos
+    // Guardar pesos y niveles
     const weightsObj = Object.fromEntries(userToWeight.entries());
     localStorage.setItem(storageKeys.weights, JSON.stringify(weightsObj));
+    const levelsObj = Object.fromEntries(userToLevel.entries());
+    localStorage.setItem(storageKeys.levels, JSON.stringify(levelsObj));
+    const extraVotesObj = Object.fromEntries(userToExtraVoteDate.entries());
+    localStorage.setItem(storageKeys.extraVotes, JSON.stringify(extraVotesObj));
   } catch {}
 }
 
@@ -96,11 +104,15 @@ function loadState() {
     const votersRaw = localStorage.getItem(storageKeys.voters);
     const voterNamesRaw = localStorage.getItem(storageKeys.voterNames);
     const weightsRaw = localStorage.getItem(storageKeys.weights);
+    const levelsRaw = localStorage.getItem(storageKeys.levels);
     if (gamesRaw) currentGames = JSON.parse(gamesRaw);
     if (votesRaw) votesByIndex = JSON.parse(votesRaw);
     if (votersRaw) userToChoice = new Map(Object.entries(JSON.parse(votersRaw)));
     if (voterNamesRaw) userToDisplayName = new Map(Object.entries(JSON.parse(voterNamesRaw)));
     if (weightsRaw) userToWeight = new Map(Object.entries(JSON.parse(weightsRaw)));
+    if (levelsRaw) userToLevel = new Map(Object.entries(JSON.parse(levelsRaw)));
+    const extraVotesRaw = localStorage.getItem(storageKeys.extraVotes);
+    if (extraVotesRaw) userToExtraVoteDate = new Map(Object.entries(JSON.parse(extraVotesRaw)));
   } catch {}
 }
 
@@ -111,6 +123,7 @@ function resetVotes(keepGames = true) {
   votesByIndex = [0, 0, 0, 0];
   userToChoice.clear();
   userToWeight.clear();
+  userToLevel.clear();
   renderCards();
   updateVoteBars();
   updateVoterLists();
@@ -162,6 +175,11 @@ function renderCards() {
       bgImg.style.zIndex = '0';
       bgImg.style.pointerEvents = 'none';
       card.appendChild(bgImg);
+
+      // Overlay de Scanlines
+      const scanlines = document.createElement('div');
+      scanlines.className = 'scanlines';
+      card.appendChild(scanlines);
     }
 
     const top = document.createElement("div");
@@ -242,7 +260,10 @@ function updateVoterLists() {
   const votersByOption = [[], [], [], []];
   for (const [username, choiceIndex] of userToChoice.entries()) {
     const display = userToDisplayName.get(username) || username;
-    if (choiceIndex >= 0 && choiceIndex < 4) votersByOption[choiceIndex].push(display);
+    const level = userToLevel.get(username) || 0;
+    if (choiceIndex >= 0 && choiceIndex < 4) {
+      votersByOption[choiceIndex].push({ name: display, level });
+    }
   }
   votersByOption.forEach((list, index) => {
     const card = cards[index];
@@ -250,14 +271,26 @@ function updateVoterLists() {
     const chipsWrap = card.querySelector('.voter-inline');
     if (!chipsWrap) return;
     chipsWrap.innerHTML = '';
-    list.forEach(name => {
+    list.forEach(voter => {
       const chip = document.createElement('span');
       chip.className = 'voter-chip';
-      chip.textContent = name;
+      if (voter.level >= 50) chip.classList.add('high-level');
+      
+      const lvlTag = document.createElement('span');
+      lvlTag.className = 'lvl-tag';
+      lvlTag.textContent = `Lvl.${voter.level}`;
+      
+      const nameTag = document.createTextNode(voter.name);
+      
+      chip.appendChild(lvlTag);
+      chip.appendChild(nameTag);
+
       // Color único por nombre: calcular un tono (hue) determinístico
       let acc = 0;
+      const name = voter.name;
       for (let i = 0; i < name.length; i++) acc = (acc + name.charCodeAt(i) * 17) % 3600;
       const hue = acc % 360;
+
       chip.style.setProperty('--chip-hue', String(hue));
       chipsWrap.appendChild(chip);
     });
@@ -338,7 +371,11 @@ function handleIrcLine(line) {
       }));
       if (tags['display-name']) displayName = tags['display-name'];
     }
-    handleChatMessage(username, message, displayName);
+    
+    // Detectar si es una redención de puntos de canal con mensaje
+    const isRedemption = tagsStr.includes("msg-id=custom-reward-redemption") || tagsStr.includes("custom-reward-id=");
+    
+    handleChatMessage(username, message, displayName, isRedemption);
     return;
   }
 
@@ -362,6 +399,15 @@ function extractVote(message) {
   if (!Number.isFinite(number)) return null;
   if (number < 1 || number > 4) return null;
   return number - 1;
+}
+
+function extractWithdrawal(message) {
+  const lowered = message.toLowerCase().trim();
+  const match = lowered.match(/^!not([1-4])(\b|$)/);
+  if (match) {
+    return parseInt(match[1], 10) - 1;
+  }
+  return null;
 }
 
 // Calcular el peso del voto basado en el número de mensajes
@@ -391,7 +437,7 @@ function calculateVoteWeight(level) {
 // Calcular el peso del voto basado en los mensajes del usuario
 
 
-async function handleChatMessage(username, message, displayName) {
+async function handleChatMessage(username, message, displayName, isExtraVote = false) {
   // Comando para resetear votación (solo el streamer)
   const loweredMessage = message.toLowerCase().trim();
   if ((loweredMessage === "!reset" || loweredMessage === "!reset votacion" || loweredMessage === "!resetvotacion") 
@@ -403,14 +449,45 @@ async function handleChatMessage(username, message, displayName) {
 
   // Ya no incrementamos messageCounts localmente
 
+  // Comprobar si es un comando de retirada !notX
+  const withdrawalIndex = extractWithdrawal(message);
+  if (withdrawalIndex !== null) {
+    const prevIndex = userToChoice.has(username) ? Number(userToChoice.get(username)) : null;
+    if (prevIndex === withdrawalIndex) {
+      const prevWeight = userToWeight.get(username) || 0;
+      votesByIndex[withdrawalIndex] = Math.max(0, (votesByIndex[withdrawalIndex] || 0) - prevWeight);
+      userToChoice.delete(username);
+      // No borramos el peso por si vuelve a votar, pero el Choice indica que no tiene voto activo
+      updateVoteBars();
+      updateVoterLists();
+      saveState();
+      console.log(`[Withdraw] User ${username} withdrew vote for index ${withdrawalIndex}`);
+    }
+    return;
+  }
+
   const newIndex = extractVote(message);
   if (newIndex === null) {
     return;
   }
 
-  // Consultar Nivel y Calcular Peso (Async)
+  // Consultar Nivel y Calcular Peso Base
   const level = await fetchUserLevel(username);
-  const newWeight = calculateVoteWeight(level);
+  const baseWeight = calculateVoteWeight(level);
+  
+  // Determinar si el usuario tiene activado el bonus extra hoy
+  const today = new Date().toISOString().split('T')[0];
+  let hasExtraToday = userToExtraVoteDate.get(username) === today;
+
+  // Si es un canje de recompensa Y aún no lo ha usado hoy, activarlo
+  if (isExtraVote && !hasExtraToday) {
+    userToExtraVoteDate.set(username, today);
+    hasExtraToday = true;
+    console.log(`[Extra Vote] User ${username} activated +1 point bonus for today.`);
+  }
+
+  // Peso TOTAL = Base + Bonus
+  const newWeight = baseWeight + (hasExtraToday ? 1 : 0);
 
   const hadPrevious = userToChoice.has(username);
   const prevIndex = hadPrevious ? Number(userToChoice.get(username)) : null;
@@ -432,9 +509,19 @@ async function handleChatMessage(username, message, displayName) {
   // (Nota: si era el mismo voto y peso distinto, ya lo restamos arriba, ahora sumamos el nuevo)
   userToChoice.set(username, newIndex);
   userToWeight.set(username, newWeight);
+  userToLevel.set(username, level);
   if (displayName) userToDisplayName.set(username, displayName);
   
   votesByIndex[newIndex] = (Number(votesByIndex[newIndex] || 0) + newWeight);
+
+  // Trigger pulse animation on the card
+  const cards = gridEl.querySelectorAll(".card");
+  if (cards[newIndex]) {
+    cards[newIndex].classList.remove("pulse-voted");
+    void cards[newIndex].offsetWidth; // force reflow
+    cards[newIndex].classList.add("pulse-voted");
+    setTimeout(() => cards[newIndex].classList.remove("pulse-voted"), 400);
+  }
 
   updateVoteBars();
   updateVoterLists();
