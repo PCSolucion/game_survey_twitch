@@ -320,7 +320,7 @@ body {
   top: 110px; /* Pushed down further */
   bottom: 70px; /* Stop before the footer */
   left: 4px; /* Shifted right from -14px */
-  width: 170px;
+  width: 280px;
   display: flex;
   flex-direction: column; /* Stack one below another */
   align-items: flex-start; /* Align to the left */
@@ -353,21 +353,41 @@ body {
   border: 1px solid rgba(255, 59, 69, 0.4);
   border-left: 3px solid var(--accent);
   
-  padding: 4px 10px;
-  font-size: 14px; /* Balanced size */
-  font-weight: 600;
+  padding: 6px 12px;
+  font-size: 16px; /* Slightly larger */
+  font-weight: 700;
   font-family: var(--font-tech);
   color: #fff;
-  text-shadow: 0 0 2px black;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
   
-  /* Ensure long names truncate properly */
+  /* Layout */
+  justify-content: space-between;
+  width: auto;
+  min-width: 180px; /* Stronger presence, more name visibility */
+  
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  transition: all 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  backdrop-filter: blur(4px);
+}
+
+.voter-name {
+  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
-  transition: all 200ms ease;
-  backdrop-filter: blur(2px);
+  margin: 0 8px;
+}
+
+.pts-tag {
+  background: #fff;
+  color: #000;
+  padding: 2px 10px;
+  font-size: 1.1em;
+  font-weight: 900;
+  border-radius: 0px;
+  border-left: 3px solid var(--accent);
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+  margin-left: auto;
 }
 
 .voter-chip .lvl-tag {

@@ -261,11 +261,15 @@ function updateVoterLists() {
   for (const [username, choiceIndex] of userToChoice.entries()) {
     const display = userToDisplayName.get(username) || username;
     const level = userToLevel.get(username) || 0;
+    const weight = userToWeight.get(username) || 1;
     if (choiceIndex >= 0 && choiceIndex < 4) {
-      votersByOption[choiceIndex].push({ name: display, level });
+      votersByOption[choiceIndex].push({ name: display, level, weight });
     }
   }
   votersByOption.forEach((list, index) => {
+    // Ordenar de mayor a menor peso (puntos)
+    list.sort((a, b) => b.weight - a.weight);
+
     const card = cards[index];
     if (!card) return;
     const chipsWrap = card.querySelector('.voter-inline');
@@ -279,11 +283,18 @@ function updateVoterLists() {
       const lvlTag = document.createElement('span');
       lvlTag.className = 'lvl-tag';
       lvlTag.textContent = `Lvl.${voter.level}`;
+
+      const nameTag = document.createElement('span');
+      nameTag.className = 'voter-name';
+      nameTag.textContent = voter.name;
       
-      const nameTag = document.createTextNode(voter.name);
+      const ptsTag = document.createElement('span');
+      ptsTag.className = 'pts-tag';
+      ptsTag.textContent = `+${voter.weight}`;
       
       chip.appendChild(lvlTag);
       chip.appendChild(nameTag);
+      chip.appendChild(ptsTag);
 
       // Color único por nombre: calcular un tono (hue) determinístico
       let acc = 0;
