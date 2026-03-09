@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Votación de Juegos - Overlay OBS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Background Layer -->
+    <div class="bg-layer">
+      <div class="bg-orb orb-1"></div>
+      <div class="bg-orb orb-2"></div>
+    </div>
+
+    <!-- Video Background System -->
+    <div class="video-background-container">
+      <video
+        id="bgVideo1"
+        class="bg-video active"
+        autoplay
+        muted
+        playsinline
+        loop
+      ></video>
+      <video
+        id="bgVideo2"
+        class="bg-video"
+        autoplay
+        muted
+        playsinline
+        loop
+      ></video>
+    </div>
+
+    <div class="game-hud overlay" id="overlay">
+      <div class="hud-body">
+        <!-- LEFT: Title Panel -->
+        <section class="hud-panel title-panel">
+          <div
+            class="panel-list"
+            id="menuList"
+            style="
+              padding: 0 135px 0 20px;
+              justify-content: center;
+              display: flex;
+              box-sizing: border-box;
+              width: 100%;
+            "
+          >
+            <div
+              class="header"
+              style="
+                justify-content: center;
+                text-align: center;
+                margin: 0;
+                width: 100%;
+              "
+            >
+              <div
+                class="title"
+                style="flex-direction: column; align-items: center; width: 100%"
+              >
+                <span
+                  style="
+                    font-size: 32px;
+                    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9);
+                    color: var(--cyber-red);
+                    line-height: 1.2;
+                    font-weight: 900;
+                    white-space: normal;
+                    text-align: center;
+                  "
+                  >VOTACIÓN DEL<br />PRÓXIMO JUEGO</span
+                >
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT: Grid Panel -->
+        <section class="hud-panel">
+          <div class="panel-list" id="contentArea">
+            <!-- Instructions Header moved above cards -->
+            <div
+              class="footer"
+              style="
+                padding-bottom: 30px;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: center;
+                gap: 40px;
+                border-top: none;
+                margin-top: -60px;
+              "
+            >
+              <div
+                class="hint"
+                id="hint"
+                style="
+                  color: #fff;
+                  font-family: var(--font-mono);
+                  font-size: 32px;
+                  border-left: 6px solid var(--cyber-red);
+                  background: rgba(255, 59, 69, 0.15);
+                  padding: 12px 25px;
+                  text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+                "
+              >
+                Vota con !1-!3 en el chat
+              </div>
+              <div
+                class="status"
+                id="status"
+                style="
+                  color: var(--cyber-red);
+                  font-family: var(--font-mono);
+                  font-size: 24px;
+                  padding-left: 15px;
+                  font-weight: bold;
+                  text-shadow: 0 0 8px rgba(255, 59, 69, 0.4);
+                "
+              >
+                Esperando votos…
+              </div>
+            </div>
+            <div class="grid" id="grid">
+              <!-- Tarjetas de juegos (se rellenan por JS) -->
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <div class="minimized" id="resetBtn" style="display: none; cursor: pointer">
+      Reset encuesta
+    </div>
+
+    <script src="data.js"></script>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
