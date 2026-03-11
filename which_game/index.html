@@ -13,30 +13,13 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- Background Layer -->
+    <!-- Blur Layer for OBS transparency -->
+    <div class="blur-overlay"></div>
+
+    <!-- Background Orbs (keep as decorative subtle elements) -->
     <div class="bg-layer">
       <div class="bg-orb orb-1"></div>
       <div class="bg-orb orb-2"></div>
-    </div>
-
-    <!-- Video Background System -->
-    <div class="video-background-container">
-      <video
-        id="bgVideo1"
-        class="bg-video active"
-        autoplay
-        muted
-        playsinline
-        loop
-      ></video>
-      <video
-        id="bgVideo2"
-        class="bg-video"
-        autoplay
-        muted
-        playsinline
-        loop
-      ></video>
     </div>
 
     <div class="game-hud overlay" id="overlay">

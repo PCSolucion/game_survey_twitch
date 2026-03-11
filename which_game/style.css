@@ -12,9 +12,9 @@
   --cyber-cyan-rgb: 0, 246, 255;
 
   --cyber-black: #050505;
-  --bg-dark: #0a0a0f;
-  --cyber-panel-bg: rgba(10, 10, 18, 0.4);
-  --bg-panel: rgba(10, 10, 18, 0.35);
+  --bg-dark: transparent; /* Permite ver el juego en OBS */
+  --cyber-panel-bg: rgba(10, 10, 18, 0.7); /* Menos transparente */
+  --bg-panel: rgba(5, 5, 8, 0.76); /* Ajustado ligeramente para aclarar un poco */
 
   /* Core Mappings */
   --accent: var(--cyber-red-bright);
@@ -59,33 +59,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-* {
-  box-sizing: border-box;
-}
-
 /* ═══════════════════
-   VIDEO BACKGROUND
+   OBS TRANSPARENCY & BLUR
    ═══════════════════ */
-.video-background-container {
+.blur-overlay {
   position: absolute;
   inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  background: black;
-}
-.bg-video {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 110%;
-  height: 110%;
-  object-fit: cover;
-  object-position: 50% 50% !important; /* Forzado al centro */
-  opacity: 0;
-  transition: opacity 1.5s ease-in-out;
-}
-.bg-video.active {
-  opacity: 1;
+  z-index: -1;
+  background: rgba(5, 5, 8, 0.58); /* Aclarado sutilmente de 0.65 a 0.58 */
+  backdrop-filter: blur(25px); /* Desenfoque aumentado significativamente */
+  -webkit-backdrop-filter: blur(25px);
+  pointer-events: none;
 }
 
 /* ═══════════════════
@@ -105,7 +89,7 @@ body {
 .bg-orb.orb-1 {
   width: 800px;
   height: 800px;
-  background: rgba(var(--cyber-red-rgb), 0.05);
+  background: rgba(var(--cyber-red-rgb), 0.15); /* Subido para que destaque sobre el juego */
   top: -300px;
   left: -200px;
   animation: drift 28s ease-in-out infinite;
@@ -113,7 +97,7 @@ body {
 .bg-orb.orb-2 {
   width: 600px;
   height: 600px;
-  background: rgba(var(--cyber-cyan-rgb), 0.03);
+  background: rgba(var(--cyber-cyan-rgb), 0.1);
   bottom: -250px;
   right: -150px;
   animation: drift 24s ease-in-out infinite reverse;
@@ -161,7 +145,7 @@ body {
 
 .hud-panel:first-child {
   flex: 0 0 450px;
-  background: rgba(var(--cyber-red-rgb), 0.12);
+  background: rgba(var(--cyber-red-rgb), 0.25); /* Panels más opacos */
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   clip-path: polygon(0 0, 100% 0, 70% 100%, 0 100%);
@@ -480,7 +464,7 @@ body {
   top: 135px; /* Bajado un poco más (antes 110px) */
   left: 0px !important; /* Pegado al borde IZQUIERDO absoluto de la card */
   bottom: 25px; 
-  width: 140px; /* Ancho reducido de 155px a 140px */
+  width: 190px; /* Ancho aumentado para nombres largos */
   display: flex;
   flex-direction: column; /* Stack vertically */
   align-items: stretch; /* Stretch children to fill 145px width */
@@ -513,7 +497,7 @@ body {
   -webkit-backdrop-filter: blur(8px);
   border: none !important;
   border-radius: 0 !important;
-  padding: 4px 18px; /* Menos altura (padding vertical reducido de 10px a 4px) */
+  padding: 4px 12px; /* Padding ajustado para dar más espacio horizontal */
   margin-bottom: 2px;
   font-size: 15px; /* Reducido de 17px a 15px */
   font-family: var(--font-primary);
@@ -544,7 +528,7 @@ body {
   text-align: left;
   font-weight: 600;
   white-space: nowrap;
-  max-width: 90px; /* Reducido de 105px a 90px para encajar en el badge más estrecho */
+  max-width: 130px; /* Aumentado para nombres de votantes */
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.5px;

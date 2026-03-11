@@ -445,15 +445,7 @@ function updateVoterLists() {
       chip.className = 'voter-chip';
       if (voter.hasBonus) chip.classList.add('has-bonus');
       
-      // Apply new styles for voter-chip
-      chip.style.background = 'rgba(10, 10, 18, 0.2)'; // Menos opaco
-      chip.style.backdropFilter = 'blur(8px)';
-      chip.style.webkitBackdropFilter = 'blur(8px)';
-      chip.style.border = 'none';
-      chip.style.borderRadius = '0';
-      chip.style.padding = '4px 18px'; // Menos altura solicitada
-      chip.style.marginBottom = '2px';
-      chip.style.fontSize = '15px'; 
+      // Los estilos ahora se manejan principalmente desde style.css (.voter-chip)
       
       const nameTag = document.createElement('span');
       nameTag.className = 'voter-name';
@@ -462,7 +454,6 @@ function updateVoterLists() {
       const ptsTag = document.createElement('span');
       ptsTag.className = 'pts-tag';
       ptsTag.textContent = `+${voter.weight}`;
-      ptsTag.style.fontSize = '18px'; // Tamaño reducido a petición
       
       chip.appendChild(nameTag);
       chip.appendChild(ptsTag);
@@ -931,7 +922,7 @@ function initVideoBackground() {
 
 function init() {
   showOverlay();
-  initVideoBackground();
+  // initVideoBackground(); // Desactivado para usar transparencia de OBS
   
   if (resetBtnEl) {
     // resetBtnEl.style.display = "inline-flex"; // Oculto el botón a petición del usuario
