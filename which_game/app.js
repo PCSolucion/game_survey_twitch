@@ -337,9 +337,22 @@ function renderCards() {
     
     const title = document.createElement("div");
     title.className = "game-title";
-    title.textContent = gameTitle;
+    
+    const titleText = document.createElement("span");
+    titleText.style.display = "inline-block";
+    titleText.style.whiteSpace = "nowrap";
+    titleText.textContent = gameTitle;
+    title.appendChild(titleText);
     
     top.appendChild(title);
+    
+    setTimeout(() => {
+      if (title.scrollWidth > title.clientWidth) {
+        const dist = title.scrollWidth - title.clientWidth + 15;
+        title.style.setProperty('--scroll-dist', `-${dist}px`);
+        titleText.style.animation = 'scroll-marquee 4s linear infinite alternate';
+      }
+    }, 100);
     
     // Lista de votantes
     const chips = document.createElement('div');

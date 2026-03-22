@@ -453,6 +453,11 @@ body {
   display: block;
 }
 
+@keyframes scroll-marquee {
+  0%, 15% { transform: translateX(0); }
+  85%, 100% { transform: translateX(var(--scroll-dist)); }
+}
+
 .card-wrapper.is-leader .game-title {
   color: #fff;
   border-left-color: #fff;
