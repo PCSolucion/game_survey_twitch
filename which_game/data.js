@@ -2,7 +2,7 @@
 // Puedes usar URLs absolutas (http/https) o rutas locales relativas al archivo `index.html`
 // Deben ser exactamente 3 elementos
 window.OPTIONS_DATA = [
-  { title: "RESIDENT EVIL ZERO", image: "auto" },
-  { title: "BIOSHOCK 2", image: "auto" },
-  { title: "RYSE SON OF ROME", image: "auto" },
+  { title: "GOD OF WAR RAGNAROK", image: "auto" },
+  { title: "METRO 2033 REDUX", image: "auto" },
+  { title: "WOLFENSTEIN: THE NEW ORDER", image: "auto" },
 ];
