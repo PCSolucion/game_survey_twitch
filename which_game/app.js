@@ -288,7 +288,7 @@ function renderCards() {
     }
     
     // Si sigue sin haber imagen y tenemos API Key, buscamos en RAWG
-    const objPos = (gameTitle.toUpperCase().includes('RYSE')) ? 'center center' : '65% center';
+    const objPos = (gameTitle.toUpperCase().includes('RYSE')) ? 'center center' : 'left center';
     
     if (!imageUrl || imageUrl === "auto") {
       fetchGameImage(gameTitle).then(img => {
