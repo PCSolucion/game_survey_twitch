@@ -52,15 +52,15 @@
               >
                 <span
                   style="
-                    font-size: 30px;
+                    font-size: 32px;
                     text-shadow: 2px 3px 6px rgba(0, 0, 0, 0.6);
                     color: #fff;
-                    line-height: 1.2;
+                    line-height: 1.1;
                     font-weight: 900;
                     white-space: normal;
                     text-align: center;
-                    letter-spacing: 1px;
-                    font-family: 'Outfit', sans-serif;
+                    letter-spacing: 2px;
+                    font-family: var(--font-display);
                   "
                   >VOTACIÓN DEL<br />PRÓXIMO JUEGO</span
                 >
@@ -72,39 +72,18 @@
         <!-- RIGHT: Grid Panel -->
         <section class="hud-panel">
           <div class="panel-list" id="contentArea">
-            <!-- Instructions Header -->
-            <div
-              class="footer"
-              style="
-                padding-bottom: 30px;
-                display: flex;
-                flex-direction: row;
-                align-items: center;
-                justify-content: center;
-                gap: 40px;
-                border-top: none;
-                margin-top: -60px;
-              "
-            >
-              <div
-                class="hint"
-                id="hint"
-              >
-                Vota con !1-!10 en el chat
-              </div>
-              <div
-                class="status"
-                id="status"
-              >
-                Esperando votos…
-              </div>
+            <!-- New Hint Header matching Left Panel style -->
+            <div class="hint-header">
+              <span id="hint">VOTA CON !1-!10<br>EN EL CHAT</span>
             </div>
+            
             <div class="grid" id="grid">
               <!-- Game cards (populated by JS) -->
             </div>
           </div>
         </section>
       </div>
+      <div class="status" id="status" style="display:none"></div>
     </div>
     <div class="minimized" id="resetBtn" style="display: none; cursor: pointer">
       Reset encuesta

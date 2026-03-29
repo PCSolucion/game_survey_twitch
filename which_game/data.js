@@ -11,11 +11,11 @@ window.OPTIONS_DATA = [
 // ═══════════════════════════════════════════════════
 window.CAROUSEL_DATA = [
   { title: "WOLFENSTEIN: THE NEW ORDER", image: "auto" },
-  { title: "DARK SOULS III", image: "auto" },
-  { title: "RESIDENT EVIL 4 REMAKE", image: "auto" },
-  { title: "ELDEN RING", image: "auto" },
-  { title: "HOLLOW KNIGHT", image: "auto" },
-  { title: "SEKIRO", image: "auto" },
-  { title: "BLOODBORNE", image: "auto" },
-  { title: "THE WITCHER 3", image: "auto" },
+  { title: "GTA SAN ANDREAS", image: "auto" },
+  { title: "RESIDENT EVIL ZERO", image: "auto" },
+  { title: "SILENT HILL F", image: "auto" },
+  { title: "DYING LIGHT THE BEAST", image: "auto" },
+  { title: "THE ELDER SCROLLS V: SKYRIM", image: "auto" },
+  { title: "FINAL FANTASY X", image: "auto" },
+  { title: "DEAD SPACE REMAKE", image: "auto" },
 ];

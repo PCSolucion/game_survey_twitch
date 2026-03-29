@@ -6,6 +6,20 @@
 
 @import url("https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap");
 
+@font-face {
+  font-family: "Formula1";
+  src: url("fonts/Formula1-Regular_web_0.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Formula1";
+  src: url("fonts/Formula1-Display-Bold-Bold.ttf.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+}
+
 :root {
   /* F1 Core Colors — aligned with f1-theme.css */
   --f1-red: #d80d0d;
@@ -46,8 +60,8 @@
 
   --overlay-bg: transparent;
   --bg-dark: transparent;
-  --bg-panel: rgba(var(--f1-black-rgb), 0.78);
-  --card-bg: rgba(var(--f1-black-rgb), 0.75);
+  --bg-panel: rgba(var(--f1-black-rgb), 0.88);
+  --card-bg: rgba(var(--f1-black-rgb), 0.85);
 
   --ok: var(--f1-green);
   --warn: var(--f1-yellow);
@@ -58,7 +72,7 @@
   /* Fonts — aligned with f1-theme.css */
   --font-primary: "Titillium Web", sans-serif;
   --font-tech: "JetBrains Mono", monospace;
-  --font-display: "Outfit", sans-serif;
+  --font-display: "Formula1", "Titillium Web", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
   /* Transitions */
@@ -173,7 +187,7 @@ body {
 /* LEFT PANEL — Title section */
 .hud-panel:first-child {
   flex: 0 0 420px;
-  background: rgba(var(--f1-red-rgb), 0.85);
+  background: rgba(var(--f1-red-rgb), 0.92);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   clip-path: polygon(0 0, 100% 0, 75% 100%, 0 100%);
@@ -316,7 +330,7 @@ body {
   flex-direction: column;
   justify-content: flex-start;
   gap: 12px;
-  background: rgba(var(--f1-black-rgb), 0.72);
+  background: var(--card-bg);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   height: 100%;
@@ -357,19 +371,7 @@ body {
   display: none !important;
 }
 
-/* Decorative top-right accent bar */
-.card::after {
-  content: "";
-  position: absolute;
-  top: 3px;
-  right: 0;
-  width: 60px;
-  height: 3px;
-  background: var(--f1-green);
-  opacity: 0.6;
-  z-index: 3;
-  border-radius: 0 0 0 2px;
-}
+
 
 /* Pulse Animation for votes — cleaner */
 @keyframes vote-pulse {
@@ -463,13 +465,31 @@ body {
   letter-spacing: -0.5px;
 }
 
-.card-wrapper.is-leader .option-number {
-  background: var(--f1-white);
-  color: var(--f1-red);
-  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.2);
-  text-shadow: none;
+/* SLOT 1 (!1) — Purple */
+.card-wrapper:nth-child(1) .option-number {
+  background: #8A29A4;
+  color: var(--f1-white);
+  box-shadow: 0 4px 16px rgba(138, 41, 164, 0.3);
   font-weight: 900;
 }
+
+/* SLOT 2 (!2) — Green */
+.card-wrapper:nth-child(2) .option-number {
+  background: #72EF4B;
+  color: #000;
+  box-shadow: 0 4px 16px rgba(114, 239, 75, 0.3);
+  font-weight: 900;
+}
+
+/* SLOT 3 (!3 - !10) — Gold/Yellow */
+.card-wrapper:nth-child(3) .option-number {
+  background: #e0c839;
+  color: #000;
+  box-shadow: 0 4px 16px rgba(224, 200, 57, 0.3);
+  font-weight: 900;
+}
+
+
 
 /* ═══════════════════
    GAME TITLE — Clean F1 data cell
@@ -545,14 +565,14 @@ body {
   box-sizing: border-box;
 
   /* Clean F1 style — almost no background */
-  background: rgba(var(--f1-black-rgb), 0.32) !important;
+  background: rgba(var(--f1-black-rgb), 0.7) !important;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   border: none !important;
   border-radius: 0 !important;
   border-left: 2px solid rgba(var(--f1-red-rgb), 0.4) !important;
   padding: 4px 10px;
-  margin-bottom: 1px;
+  margin-bottom: 2px;
   font-size: 14px;
   font-family: var(--font-primary);
   color: rgba(255, 255, 255, 0.85);
@@ -580,12 +600,11 @@ body {
   text-align: left;
   font-weight: 600;
   white-space: nowrap;
-  max-width: 130px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.3px;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 13px;
 }
 
 .pts-tag {
@@ -593,12 +612,55 @@ body {
   font-weight: 800;
   font-family: var(--font-display);
   margin-left: 6px;
-  font-size: 16px;
+  font-size: 12px;
   text-shadow: none;
 }
 
 .voter-chip.high-level {
   border-left-color: rgba(var(--f1-green-rgb), 0.6) !important;
+}
+
+/* New Hint Header — exact visual clone of left panel style */
+.hint-header {
+  position: relative;
+  width: fit-content;
+  background: rgba(var(--f1-red-rgb), 0.92);
+  padding: 15px 60px 15px 40px;
+  margin-bottom: 30px;
+  clip-path: polygon(0 0, 100% 0, 85% 100%, 0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.hint-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 8px,
+    rgba(0, 0, 0, 0.08) 8px,
+    rgba(0, 0, 0, 0.08) 16px
+  );
+  pointer-events: none;
+}
+
+.hint-header span {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 28px;
+  line-height: 1.1;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 2px 3px 6px rgba(0, 0, 0, 0.6);
+  text-align: center;
 }
 
 .voter-chip.high-level .lvl-tag {
@@ -667,34 +729,72 @@ body {
 }
 
 /* ═══════════════════
-   LEADER STATE — F1 P1 Highlight
+   FIXED SLOT COLORS — F1 Team Branding
    ═══════════════════ */
-.card-wrapper.is-leader .votes-badge {
-  background: rgba(var(--f1-red-rgb), 0.15);
-  border-color: rgba(var(--f1-red-rgb), 0.3);
-  border-top: 3px solid var(--f1-red);
-  box-shadow: 0 4px 24px rgba(var(--f1-red-rgb), 0.15);
-  transform: translateY(-3px);
+
+/* SLOT 1 Highlights (Purple) */
+.card-wrapper:nth-child(1) .card {
+  border-top: 3px solid #8A29A4;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(138, 41, 164, 0.1);
+}
+.card-wrapper:nth-child(1) .game-title {
+  border-left-color: #8A29A4 !important;
+}
+.card-wrapper:nth-child(1) .votes-badge {
+  background: rgba(138, 41, 164, 0.1);
+  border-color: rgba(138, 41, 164, 0.3);
+  border-top: 3px solid #8A29A4;
+}
+.card-wrapper:nth-child(1) .voter-chip {
+  border-left-color: rgba(138, 41, 164, 0.5) !important;
+}
+.card-wrapper:nth-child(1) .pts-tag {
+  color: #8A29A4;
 }
 
-.card-wrapper.is-leader .vote-count {
-  color: var(--f1-white);
+/* SLOT 2 Highlights (Green) */
+.card-wrapper:nth-child(2) .card {
+  border-top: 3px solid #72EF4B;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(114, 239, 75, 0.1);
+}
+.card-wrapper:nth-child(2) .game-title {
+  border-left-color: #72EF4B !important;
+}
+.card-wrapper:nth-child(2) .votes-badge {
+  background: rgba(114, 239, 75, 0.1);
+  border-color: rgba(114, 239, 75, 0.3);
+  border-top: 3px solid #72EF4B;
+}
+.card-wrapper:nth-child(2) .voter-chip {
+  border-left-color: rgba(114, 239, 75, 0.5) !important;
+}
+.card-wrapper:nth-child(2) .pts-tag {
+  color: #72EF4B;
 }
 
-.card-wrapper.is-leader .vote-count::after {
-  color: rgba(255, 255, 255, 0.7);
+/* SLOT 3 Highlights (Gold) - Options !3 to !10 */
+.card-wrapper:nth-child(3) .card {
+  border-top: 3px solid #e0c839;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(224, 200, 57, 0.1);
+}
+.card-wrapper:nth-child(3) .game-title {
+  border-left-color: #e0c839 !important;
+}
+.card-wrapper:nth-child(3) .votes-badge {
+  background: rgba(224, 200, 57, 0.1);
+  border-color: rgba(224, 200, 57, 0.3);
+  border-top: 3px solid #e0c839;
+}
+.card-wrapper:nth-child(3) .voter-chip {
+  border-left-color: rgba(224, 200, 57, 0.5) !important;
+}
+.card-wrapper:nth-child(3) .pts-tag {
+  color: #e0c839;
 }
 
-.card-wrapper.is-leader .label {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.card-wrapper.is-leader .card {
-  border-top: 3px solid var(--f1-white);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-}
+/* ═══════════════════
+   FOOTER / INSTRUCTIONS
+   ═══════════════════ */
 
 /* ═══════════════════
    FOOTER / INSTRUCTIONS
@@ -878,7 +978,7 @@ body {
 
 /* Carousel card border accent */
 .carousel-card {
-  border-top-color: var(--f1-red) !important;
+  border-top-color: #e0c839 !important;
   position: relative;
 }
 
@@ -893,8 +993,8 @@ body {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(var(--f1-red-rgb), 0.4) 20%,
-    rgba(var(--f1-red-rgb), 0.4) 80%,
+    rgba(224, 200, 57, 0.4) 20%,
+    rgba(224, 200, 57, 0.4) 80%,
     transparent 100%
   );
   z-index: 3;

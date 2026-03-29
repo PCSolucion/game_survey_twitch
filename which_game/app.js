@@ -12,7 +12,7 @@ const config = {
   channelName: "liiukiin",
   commandAliases: ["!vota", "!votar", "!vote"],
   oneVotePerUser: true,
-  carouselInterval: 5000, // Rotación del carrusel en ms
+  carouselInterval: 10000, // Rotación del carrusel en ms (10 segundos)
   // Video Backgrounds
   backgrounds: [
     'fondos/isabela.mp4', 'fondos/bloodborne.mp4', 'fondos/ciri.mp4', 'fondos/claire.mp4',
@@ -65,6 +65,7 @@ let carouselElements = null;     // DOM refs for the carousel card
 // Mapas de estado de usuarios
 const userVotes = new Map();       // userKey -> { choice: number, level: number, extraBonus: number }
 const userDisplayNames = new Map(); // userKey -> displayName
+const processingLock = new Set();   // Prevents concurrent processing for the same user
 
 // ============================================================================
 // ELEMENTOS DEL DOM
@@ -325,7 +326,7 @@ function createFixedCard(index) {
  */
 function setupCardImage(card, gameTitle, optionData) {
   let imageUrl = optionData?.image || null;
-  const objPos = gameTitle.toUpperCase().includes('RYSE') ? 'center center' : 'left center';
+  const objPos = 'center center';
   
   if (!imageUrl || imageUrl === "auto") {
     fetchGameImage(gameTitle).then(img => {
@@ -340,7 +341,7 @@ function setupCardImage(card, gameTitle, optionData) {
   }
 }
 
-function applyCardImage(card, imageUrl, objPos = 'left center') {
+function applyCardImage(card, imageUrl, objPos = 'center center') {
   card.style.background = "none";
   card.style.overflow = "hidden";
   
@@ -431,28 +432,9 @@ function createCarouselCard() {
   chips.className = 'voter-inline carousel-content-fade';
   chips.style.cssText = 'z-index:5;left:0px;';
   
-  // Carousel indicator dots
-  const dots = document.createElement("div");
-  dots.className = "carousel-dots";
-  
-  carouselGames.forEach((_, i) => {
-    const dot = document.createElement("div");
-    dot.className = "carousel-dot" + (i === 0 ? " active" : "");
-    dot.dataset.index = i;
-    
-    // Small command label on each dot
-    const dotLabel = document.createElement("span");
-    dotLabel.className = "carousel-dot-label";
-    dotLabel.textContent = `!${i + 3}`;
-    dot.appendChild(dotLabel);
-    
-    dots.appendChild(dot);
-  });
-  
   wrapper.appendChild(number);
   wrapper.appendChild(card);
   wrapper.appendChild(chips);
-  wrapper.appendChild(dots);
   gridEl.appendChild(wrapper);
   
   // Store references for carousel updates
@@ -465,7 +447,6 @@ function createCarouselCard() {
     voteCount: count,
     labelEl: label,
     chipsContainer: chips,
-    dotsContainer: dots,
   };
   
   // Set initial carousel display
@@ -509,7 +490,7 @@ function setCarouselContent(carouselIdx, animate = true) {
     // Update image
     const cachedImg = imageCache.get(gameTitle);
     if (cachedImg) {
-      applyCardImage(carouselElements.card, cachedImg);
+      applyCardImage(carouselElements.card, cachedImg, 'center center');
     } else {
       // Remove existing image
       const existing = carouselElements.card.querySelector('.card-bg-img');
@@ -519,15 +500,10 @@ function setCarouselContent(carouselIdx, animate = true) {
       // Try to fetch
       resolveGameImage(gameTitle, optionData).then(img => {
         if (img && carouselDisplayIndex === carouselIdx) {
-          applyCardImage(carouselElements.card, img);
+          applyCardImage(carouselElements.card, img, 'center center');
         }
       });
     }
-    
-    // Update dots
-    carouselElements.dotsContainer.querySelectorAll('.carousel-dot').forEach((dot, i) => {
-      dot.classList.toggle('active', i === carouselIdx);
-    });
     
     // Refresh vote counts and voter lists for this card
     refreshUI();
@@ -623,7 +599,6 @@ function updateVoteBars() {
   const totalForPercent = (!Number.isFinite(sum) || sum === 0) ? 1 : sum;
   
   const validVotes = votesByIndex.map(v => Number.isFinite(v) ? v : 0);
-  const maxCount = Math.max(0, ...validVotes);
   
   // Map visible card index to global option index
   const visibleOptions = [0, 1, FIXED_COUNT + carouselDisplayIndex];
@@ -641,15 +616,6 @@ function updateVoteBars() {
     
     if (counter) counter.textContent = `${safeCount}`;
     if (label) label.textContent = `${percent}%`;
-    
-    // Leader check across ALL options
-    if (maxCount > 0 && safeCount === maxCount) {
-      card.classList.add("is-leader");
-      if (card.parentElement) card.parentElement.classList.add("is-leader");
-    } else {
-      card.classList.remove("is-leader");
-      if (card.parentElement) card.parentElement.classList.remove("is-leader");
-    }
   });
 }
 
@@ -806,7 +772,9 @@ function handleIrcLine(line) {
     const isRedemption = tagsStr.includes("msg-id=custom-reward-redemption") || 
                          tagsStr.includes("custom-reward-id=");
     
-    handleChatMessage(username, message, displayName, isRedemption);
+    handleChatMessage(username, message, displayName, isRedemption).catch(err => {
+      console.error('[IRC] Unhandled error in handleChatMessage:', err);
+    });
     return;
   }
 }
@@ -955,6 +923,26 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
   }
   
   const voteIndex = extractVote(message);
+  
+  // ── LOCK: Prevent concurrent processing for the same user ──
+  if (processingLock.has(userKey)) {
+    console.log(`[Lock] User ${userKey} is already being processed. Queuing vote.`);
+    // Wait for the lock to release, then re-check
+    let attempts = 0;
+    while (processingLock.has(userKey) && attempts < 20) {
+      await new Promise(r => setTimeout(r, 100));
+      attempts++;
+    }
+    if (processingLock.has(userKey)) {
+      console.warn(`[Lock] Timeout waiting for lock on ${userKey}. Skipping.`);
+      return;
+    }
+  }
+  processingLock.add(userKey);
+  
+  try {
+  
+  // Always read LIVE state (not a stale snapshot from before awaits)
   let userData = userVotes.get(userKey) || null;
   
   // CASO 1: Redención de voto extra
@@ -1015,12 +1003,21 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
   
   // CASO 3: Voto normal (!1 a !10)
   if (voteIndex !== null) {
-    if (userData && userData.choice >= 0 && userData.choice < total) {
-      console.log(`[Vote] User ${userKey} already voted for option ${userData.choice + 1}. Ignoring.`);
+    // Re-read LIVE state after any awaits above (extra vote path has awaits)
+    userData = userVotes.get(userKey) || null;
+    
+    // If already voted for THE SAME option, ignore
+    if (userData && userData.choice === voteIndex) {
+      console.log(`[Vote] User ${userKey} already voted for option ${voteIndex + 1}. Ignoring.`);
       return;
     }
     
+    // Allow vote change: pass existing data so processVote can subtract old points
     await processVote(userKey, voteIndex, userData);
+  }
+  
+  } finally {
+    processingLock.delete(userKey);
   }
 }
 
@@ -1028,56 +1025,83 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
  * Procesa un voto para un usuario.
  */
 async function processVote(userKey, voteIndex, existingData) {
-  const total = getTotalOptions();
-  const level = await fetchUserLevel(userKey);
-  
-  let extraBonus = 0;
-  if (existingData) {
-    extraBonus = existingData.extraBonus || 0;
-  }
-  
-  const newWeight = calculateTotalWeight(level, extraBonus);
-  
-  if (existingData && existingData.choice >= 0 && existingData.choice < total) {
-    const oldWeight = calculateTotalWeight(existingData.level, existingData.extraBonus || 0);
-    votesByIndex[existingData.choice] = Math.max(0, votesByIndex[existingData.choice] - oldWeight);
+  try {
+    const total = getTotalOptions();
+    const level = await fetchUserLevel(userKey);
     
-    if (existingData.choice === voteIndex && oldWeight === newWeight) {
-      console.log(`[Vote] User ${userKey} already voted for ${voteIndex + 1} with same weight. Skipping.`);
+    // ── Re-check LIVE state after the await ──
+    // Use the freshest data (might have been updated during the await)
+    const liveData = userVotes.get(userKey);
+    
+    // If during the await the user already got moved to this exact option, skip
+    if (liveData && liveData.choice === voteIndex) {
+      console.log(`[Vote] User ${userKey} already on option ${voteIndex + 1} (live check). Skipping.`);
       return;
     }
+    
+    // Use liveData if available (it's fresher than existingData)
+    const currentData = liveData || existingData;
+    
+    let extraBonus = 0;
+    let fixedPoints = undefined;
+    if (currentData) {
+      extraBonus = currentData.extraBonus || 0;
+      if (currentData.fixedPoints !== undefined) {
+        fixedPoints = currentData.fixedPoints;
+      }
+    }
+    
+    const newWeight = fixedPoints ?? calculateTotalWeight(level, extraBonus);
+    
+    // Subtract old vote if switching
+    if (currentData && currentData.choice >= 0 && currentData.choice < total) {
+      const oldWeight = currentData.fixedPoints ?? calculateTotalWeight(currentData.level, currentData.extraBonus || 0);
+      votesByIndex[currentData.choice] = Math.max(0, votesByIndex[currentData.choice] - oldWeight);
+      
+      console.log(`[Vote] User ${userKey} switching from option ${currentData.choice + 1} (-${oldWeight}) to option ${voteIndex + 1} (+${newWeight})`);
+    }
+    
+    const newData = {
+      choice: voteIndex,
+      level: level,
+      extraBonus: extraBonus
+    };
+    
+    // Preserve fixedPoints if admin-assigned
+    if (fixedPoints !== undefined) {
+      newData.fixedPoints = fixedPoints;
+    }
+    
+    userVotes.set(userKey, newData);
+    votesByIndex[voteIndex] += newWeight;
+    
+    console.log(`[Vote] User ${userKey} voted for option ${voteIndex + 1}. Level: ${level}, Base: ${calculateBaseWeight(level)}, Bonus: +${extraBonus}, Total: ${newWeight}`);
+    
+    // Visual pulse animation — map to visible card
+    const cards = gridEl.querySelectorAll(".card");
+    let cardToAnimate = null;
+    
+    if (voteIndex < FIXED_COUNT) {
+      cardToAnimate = cards[voteIndex];
+    } else if (voteIndex === FIXED_COUNT + carouselDisplayIndex) {
+      cardToAnimate = cards[2]; // carousel card
+    }
+    
+    if (cardToAnimate) {
+      cardToAnimate.classList.remove("pulse-voted");
+      void cardToAnimate.offsetWidth;
+      cardToAnimate.classList.add("pulse-voted");
+      setTimeout(() => cardToAnimate.classList.remove("pulse-voted"), 400);
+    }
+    
+    refreshUI();
+    saveState();
+  } catch (err) {
+    console.error(`[Vote] Error processing vote for ${userKey}:`, err);
+    // Attempt to recover by recalculating from stored data
+    recalculateAllVotes();
+    refreshUI();
   }
-  
-  const newData = {
-    choice: voteIndex,
-    level: level,
-    extraBonus: extraBonus
-  };
-  
-  userVotes.set(userKey, newData);
-  votesByIndex[voteIndex] += newWeight;
-  
-  console.log(`[Vote] User ${userKey} voted for option ${voteIndex + 1}. Level: ${level}, Base: ${calculateBaseWeight(level)}, Bonus: +${extraBonus}, Total: ${newWeight}`);
-  
-  // Visual pulse animation — map to visible card
-  const cards = gridEl.querySelectorAll(".card");
-  let cardToAnimate = null;
-  
-  if (voteIndex < FIXED_COUNT) {
-    cardToAnimate = cards[voteIndex];
-  } else if (voteIndex === FIXED_COUNT + carouselDisplayIndex) {
-    cardToAnimate = cards[2]; // carousel card
-  }
-  
-  if (cardToAnimate) {
-    cardToAnimate.classList.remove("pulse-voted");
-    void cardToAnimate.offsetWidth;
-    cardToAnimate.classList.add("pulse-voted");
-    setTimeout(() => cardToAnimate.classList.remove("pulse-voted"), 400);
-  }
-  
-  refreshUI();
-  saveState();
 }
 
 // ============================================================================
@@ -1126,9 +1150,10 @@ function buildGamesList() {
 function init() {
   showOverlay();
   
-  if (resetBtnEl) {
-    resetBtnEl.addEventListener("click", () => resetVotes(false));
-  }
+  // Reset button disabled — only via !reset votacion in chat
+  // if (resetBtnEl) {
+  //   resetBtnEl.addEventListener("click", () => resetVotes(false));
+  // }
   
   const total = getTotalOptions();
   setHint(`Vota con !1-!${total} en el chat`);
@@ -1156,12 +1181,7 @@ function init() {
   }
   connectToTwitch();
   
-  // Atajos de teclado
-  window.addEventListener("keydown", (e) => {
-    if (e.key.toLowerCase() === "r") {
-      resetVotes(!e.shiftKey);
-    }
-  });
+  // Keyboard reset disabled — only via !reset votacion in chat
 }
 
 document.addEventListener("DOMContentLoaded", init);
