@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { firebaseConfig } from "./api.js";
+import { blacklist } from "./blacklist.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -195,7 +196,17 @@ function loadState() {
       const obj = JSON.parse(userVotesRaw);
       const total = getTotalOptions();
       
+      const lowerBlacklist = blacklist.map(u => u.toLowerCase());
+      
       for (const [key, data] of Object.entries(obj)) {
+        const userKey = key.toLowerCase();
+        const displayName = (userDisplayNames.get(userKey) || "").toLowerCase();
+
+        if (lowerBlacklist.includes(userKey) || (displayName && lowerBlacklist.includes(displayName))) {
+          console.log(`[Blacklist] Skipping blacklisted user during load: ${userKey} (${displayName})`);
+          continue;
+        }
+        
         if (typeof data === 'number') {
           if (data >= 0 && data < total) {
             userVotes.set(key, { choice: data, level: 0, extraBonus: 0 });
@@ -877,8 +888,14 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
   const userKey = username.toLowerCase();
   const total = getTotalOptions();
   
-  if (displayName) {
-    userDisplayNames.set(userKey, displayName);
+  // Blacklist check — Ignore votes and hidden from overlay
+  // Check both username (login) and display name
+  const lowerBlacklist = blacklist.map(u => u.toLowerCase());
+  const lowerDisplayName = (displayName || "").toLowerCase();
+  
+  if (lowerBlacklist.includes(userKey) || (lowerDisplayName && lowerBlacklist.includes(lowerDisplayName))) {
+    console.log(`[Blacklist] Blocking message from: ${userKey} (${displayName})`);
+    return;
   }
   
   // Comando de reset (solo el streamer)
