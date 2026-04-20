@@ -247,10 +247,10 @@ body {
 }
 
 #contentArea {
-  padding-left: 180px;
+  padding-left: 140px;
   padding-right: 50px;
-  padding-top: 50px;
-  padding-bottom: 50px;
+  padding-top: 10px;
+  padding-bottom: 30px;
   justify-content: center;
 }
 
@@ -314,12 +314,12 @@ body {
    ═══════════════════ */
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 360px);
+  grid-template-columns: repeat(3, 420px);
+  grid-template-rows: repeat(2, 440px);
   justify-content: center;
-  gap: 130px;
-  height: 760px;
+  gap: 60px 70px;
   max-width: 100%;
-  margin: 40px auto 0 auto;
+  margin: 10px auto 0 auto;
 }
 
 /* ═══════════════════
@@ -537,7 +537,7 @@ body {
   top: 135px;
   left: 0px !important;
   bottom: 25px;
-  width: 190px;
+  width: 220px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -600,7 +600,7 @@ body {
   text-align: left;
   font-weight: 600;
   white-space: nowrap;
-  max-width: 180px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.3px;
@@ -625,8 +625,8 @@ body {
   position: relative;
   width: fit-content;
   background: rgba(var(--f1-red-rgb), 0.92);
-  padding: 15px 60px 15px 40px;
-  margin-bottom: 30px;
+  padding: 10px 50px 10px 30px;
+  margin-bottom: 20px;
   clip-path: polygon(0 0, 100% 0, 85% 100%, 0 100%);
   display: flex;
   align-items: center;
@@ -772,7 +772,7 @@ body {
   color: #72EF4B;
 }
 
-/* SLOT 3 Highlights (Gold) - Options !3 to !10 */
+/* SLOT 3 Highlights (Gold) */
 .card-wrapper:nth-child(3) .card {
   border-top: 3px solid #e0c839;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(224, 200, 57, 0.1);
@@ -780,16 +780,41 @@ body {
 .card-wrapper:nth-child(3) .game-title {
   border-left-color: #e0c839 !important;
 }
-.card-wrapper:nth-child(3) .votes-badge {
-  background: rgba(224, 200, 57, 0.1);
-  border-color: rgba(224, 200, 57, 0.3);
-  border-top: 3px solid #e0c839;
-}
 .card-wrapper:nth-child(3) .voter-chip {
   border-left-color: rgba(224, 200, 57, 0.5) !important;
 }
-.card-wrapper:nth-child(3) .pts-tag {
-  color: #e0c839;
+
+/* SLOT 4 Highlights (Blue) */
+.card-wrapper:nth-child(4) .card {
+  border-top: 3px solid #3498db;
+}
+.card-wrapper:nth-child(4) .game-title {
+  border-left-color: #3498db !important;
+}
+.card-wrapper:nth-child(4) .option-number {
+  background: #3498db;
+}
+
+/* SLOT 5 Highlights (Orange) */
+.card-wrapper:nth-child(5) .card {
+  border-top: 3px solid #e67e22;
+}
+.card-wrapper:nth-child(5) .game-title {
+  border-left-color: #e67e22 !important;
+}
+.card-wrapper:nth-child(5) .option-number {
+  background: #e67e22;
+}
+
+/* SLOT 6 Highlights (Pink) */
+.card-wrapper:nth-child(6) .card {
+  border-top: 3px solid #e91e63;
+}
+.card-wrapper:nth-child(6) .game-title {
+  border-left-color: #e91e63 !important;
+}
+.card-wrapper:nth-child(6) .option-number {
+  background: #e91e63;
 }
 
 /* ═══════════════════

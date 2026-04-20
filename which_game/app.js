@@ -27,7 +27,7 @@ const config = {
 // ============================================================================
 // CONSTANTES — Determinadas por data.js
 // ============================================================================
-const FIXED_COUNT = 2; // Slots fijos (!1, !2)
+const FIXED_COUNT = 6; // Slots fijos (!1 a !6)
 
 function getCarouselData() {
   return Array.isArray(window.CAROUSEL_DATA) ? window.CAROUSEL_DATA : [];
@@ -337,7 +337,7 @@ function createFixedCard(index) {
  */
 function setupCardImage(card, gameTitle, optionData) {
   let imageUrl = optionData?.image || null;
-  const objPos = 'center center';
+  const objPos = optionData?.objectPosition || 'center center';
   
   if (!imageUrl || imageUrl === "auto") {
     fetchGameImage(gameTitle).then(img => {
@@ -500,18 +500,18 @@ function setCarouselContent(carouselIdx, animate = true) {
     
     // Update image
     const cachedImg = imageCache.get(gameTitle);
+    const objPos = optionData?.objectPosition || 'center center';
     if (cachedImg) {
-      applyCardImage(carouselElements.card, cachedImg, 'center center');
+      applyCardImage(carouselElements.card, cachedImg, objPos);
     } else {
       // Remove existing image
       const existing = carouselElements.card.querySelector('.card-bg-img');
       if (existing) existing.remove();
       carouselElements.card.style.background = '';
       
-      // Try to fetch
       resolveGameImage(gameTitle, optionData).then(img => {
         if (img && carouselDisplayIndex === carouselIdx) {
-          applyCardImage(carouselElements.card, img, 'center center');
+          applyCardImage(carouselElements.card, img, objPos);
         }
       });
     }
@@ -579,26 +579,10 @@ function renderCards() {
   carouselElements = null;
   stopCarousel();
   
-  // Card 0 and 1: fixed games
+  // Render search fixed games
   for (let i = 0; i < FIXED_COUNT; i++) {
     createFixedCard(i);
   }
-  
-  // Card 2: carousel
-  createCarouselCard();
-  
-  // Pre-fetch all carousel images
-  const carouselGames = getCarouselData();
-  carouselGames.forEach((game, i) => {
-    const globalIdx = i + FIXED_COUNT;
-    const title = currentGames[globalIdx];
-    if (title) {
-      resolveGameImage(title, game);
-    }
-  });
-  
-  // Start carousel rotation
-  startCarousel();
 }
 
 /**
@@ -612,7 +596,7 @@ function updateVoteBars() {
   const validVotes = votesByIndex.map(v => Number.isFinite(v) ? v : 0);
   
   // Map visible card index to global option index
-  const visibleOptions = [0, 1, FIXED_COUNT + carouselDisplayIndex];
+  const visibleOptions = Array.from({ length: FIXED_COUNT }, (_, i) => i);
   
   const cards = gridEl.querySelectorAll(".card");
   
@@ -657,7 +641,7 @@ function updateVoterLists() {
   votersByOption.forEach(list => list.sort((a, b) => b.weight - a.weight));
   
   // Map visible card index to global option index
-  const visibleOptions = [0, 1, FIXED_COUNT + carouselDisplayIndex];
+  const visibleOptions = Array.from({ length: FIXED_COUNT }, (_, i) => i);
   
   visibleOptions.forEach((optionIdx, cardIdx) => {
     const list = votersByOption[optionIdx] || [];
@@ -714,6 +698,26 @@ function resetVotes(keepGames = true) {
   refreshUI();
   saveState();
   setStatus("Encuesta reseteada");
+}
+
+/**
+ * Resetea los votos de una opción específica.
+ */
+function resetOptionVotes(index) {
+  const total = getTotalOptions();
+  if (index < 0 || index >= total) return;
+  
+  // Eliminar votos de usuarios que eligieron esta opción
+  for (const [userKey, data] of userVotes.entries()) {
+    if (data.choice === index) {
+      userVotes.delete(userKey);
+    }
+  }
+  
+  recalculateAllVotes();
+  refreshUI();
+  saveState();
+  setStatus(`Votos de la opción ${index + 1} reseteados`);
 }
 
 // ============================================================================
@@ -905,6 +909,14 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
     resetVotes(false);
     return;
   }
+
+  // Reset de opción específica (solo el streamer)
+  const resetOptionMatch = loweredMessage.match(/^!(\d{1,2})\s+reset$/);
+  if (resetOptionMatch && userKey === config.channelName.toLowerCase()) {
+    const optIdx = parseInt(resetOptionMatch[1], 10) - 1;
+    resetOptionVotes(optIdx);
+    return;
+  }
   
   // ADMIN: Asignar voto manualmente
   if (userKey === config.channelName.toLowerCase()) {
@@ -988,12 +1000,29 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
       userData.extraBonus = (userData.extraBonus || 0) + 1;
     }
     
-    const newWeight = userData.fixedPoints ?? calculateTotalWeight(userData.level, userData.extraBonus);
-    
-    console.log(`[ExtraVote] User ${userKey} redeemed bonus. New weight: ${newWeight}`);
-    
-    if (userData.choice >= 0 && userData.choice < total) {
-      votesByIndex[userData.choice] = votesByIndex[userData.choice] - oldWeight + newWeight;
+    // NEW FIX: If redemption includes a vote (e.g. "!2"), allow changing choice
+    if (voteIndex !== null && voteIndex !== userData.choice) {
+      // Subtract OLD weight from OLD choice
+      if (userData.choice >= 0 && userData.choice < total) {
+        votesByIndex[userData.choice] = Math.max(0, votesByIndex[userData.choice] - oldWeight);
+      }
+      
+      // Update choice
+      userData.choice = voteIndex;
+      
+      // Recalculate level if needed before adding to NEW choice
+      userData.level = await fetchUserLevel(userKey);
+      const updatedWeight = userData.fixedPoints ?? calculateTotalWeight(userData.level, userData.extraBonus);
+      
+      votesByIndex[userData.choice] += updatedWeight;
+      console.log(`[ExtraVote] User ${userKey} redeemed bonus and switched to option ${voteIndex + 1}. Weight: ${updatedWeight}`);
+    } else {
+      // Just update current choice weight
+      const newWeight = userData.fixedPoints ?? calculateTotalWeight(userData.level, userData.extraBonus);
+      if (userData.choice >= 0 && userData.choice < total) {
+        votesByIndex[userData.choice] = votesByIndex[userData.choice] - oldWeight + newWeight;
+      }
+      console.log(`[ExtraVote] User ${userKey} redeemed bonus on current option ${userData.choice + 1}. New weight: ${newWeight}`);
     }
     
     userVotes.set(userKey, userData);
