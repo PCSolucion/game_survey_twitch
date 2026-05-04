@@ -63,10 +63,17 @@ let carouselDisplayIndex = 0;    // 0-based index within carousel games (0 = fir
 let carouselTimerId = null;
 let carouselElements = null;     // DOM refs for the carousel card
 
+// ── Voting state ──
+let votingActive = true;           // false cuando hay un ganador
+let winnerOptionIndex = -1;        // índice de la opción ganadora (-1 = ninguna)
+const WINNER_THRESHOLD = 100;      // puntos necesarios para ganar
+const MAX_USER_WEIGHT = 500;       // cap máximo de votos por usuario
+
 // Mapas de estado de usuarios
-const userVotes = new Map();       // userKey -> { choice: number, level: number, extraBonus: number }
-const userDisplayNames = new Map(); // userKey -> displayName
-const processingLock = new Set();   // Prevents concurrent processing for the same user
+const userVotes = new Map();          // userKey -> { choice: number, level: number, extraBonus: number }
+const userDisplayNames = new Map();   // userKey -> displayName
+const processingLock = new Set();     // Prevents concurrent processing for the same user
+const clearedWinnerVoters = new Set(); // Users purged from a winning option — must restart fresh (extraBonus=0)
 
 // ============================================================================
 // ELEMENTOS DEL DOM
@@ -87,7 +94,8 @@ function calculateBaseWeight(level) {
 }
 
 function calculateTotalWeight(level, extraBonus) {
-  return calculateBaseWeight(level) + (extraBonus || 0);
+  const raw = calculateBaseWeight(level) + (extraBonus || 0);
+  return Math.min(raw, MAX_USER_WEIGHT);
 }
 
 /**
@@ -677,6 +685,55 @@ function updateVoterLists() {
 function refreshUI() {
   updateVoteBars();
   updateVoterLists();
+  checkForWinner();
+}
+
+// ============================================================================
+// LÓGICA DE GANADOR
+// ============================================================================
+
+/**
+ * Comprueba si alguna opción ha llegado al umbral y, si es así,
+ * para las votaciones y marca el ganador visualmente.
+ */
+function checkForWinner() {
+  if (!votingActive) return; // Ya hay un ganador, no re-checar
+
+  const total = getTotalOptions();
+  for (let i = 0; i < total; i++) {
+    if ((votesByIndex[i] || 0) >= WINNER_THRESHOLD) {
+      declareWinner(i);
+      return;
+    }
+  }
+}
+
+function declareWinner(optionIndex) {
+  votingActive = false;
+  winnerOptionIndex = optionIndex;
+
+  console.log(`[Winner] Option ${optionIndex + 1} reached ${WINNER_THRESHOLD} votes! Voting stopped.`);
+  setStatus(`🏆 ¡GANADOR: Opción ${optionIndex + 1}! Votación detenida`);
+
+  // Aplicar clase ganador a la tarjeta correspondiente
+  const cards = gridEl.querySelectorAll('.card');
+  cards.forEach((card, cardIdx) => {
+    // Las tarjetas fijas tienen índice directo
+    if (cardIdx < FIXED_COUNT) {
+      if (cardIdx === optionIndex) {
+        card.classList.add('card-winner');
+      } else {
+        card.classList.add('card-loser');
+      }
+    }
+  });
+}
+
+function clearWinnerUI() {
+  const cards = gridEl.querySelectorAll('.card');
+  cards.forEach(card => {
+    card.classList.remove('card-winner', 'card-loser');
+  });
 }
 
 // ============================================================================
@@ -693,11 +750,60 @@ function resetVotes(keepGames = true) {
   votesByIndex = new Array(total).fill(0);
   userVotes.clear();
   carouselDisplayIndex = 0;
+  votingActive = true;
+  winnerOptionIndex = -1;
   
   renderCards();
+  clearWinnerUI();
   refreshUI();
   saveState();
   setStatus("Encuesta reseteada");
+}
+
+/**
+ * Reactiva las votaciones tras un ganador.
+ * - Borra los votos de todos los usuarios que habían votado por la opción ganadora.
+ * - Pone votesByIndex[winnerOptionIndex] = 0.
+ * - Vuelve a activar votingActive.
+ */
+function iniciarVotacion() {
+  if (winnerOptionIndex < 0) {
+    // No hay ganador activo, simplemente reactivar
+    votingActive = true;
+    clearWinnerUI();
+    setStatus('Votación iniciada');
+    return;
+  }
+
+  const prevWinner = winnerOptionIndex;
+
+  // Recopilar claves primero para evitar problemas al borrar durante iteración
+  const keysToDelete = [];
+  for (const [userKey, data] of userVotes.entries()) {
+    if (data.choice === prevWinner) {
+      keysToDelete.push(userKey);
+    }
+  }
+
+  // Borrar y registrar en el set de purgados (para forzar extraBonus=0 al re-votar)
+  clearedWinnerVoters.clear(); // Solo mantenemos los del ciclo actual
+  for (const key of keysToDelete) {
+    userVotes.delete(key);
+    clearedWinnerVoters.add(key);
+  }
+
+  // Resetear contador de esa opción
+  votesByIndex[prevWinner] = 0;
+
+  winnerOptionIndex = -1;
+  votingActive = true;
+
+  clearWinnerUI();
+  recalculateAllVotes();
+  refreshUI();
+  saveState();
+  setStatus(`Votación iniciada — opción ${prevWinner + 1} reseteada`);
+  console.log(`[iniciarVotacion] Voting restarted. Option ${prevWinner + 1} voters cleared: ${keysToDelete.join(', ')}`);
 }
 
 /**
@@ -853,14 +959,54 @@ function extractAdminVote(message) {
   if (match) {
     const num = parseInt(match[1], 10);
     if (num >= 1 && num <= total) {
+      let targetUser = match[2].toLowerCase();
+      if (targetUser.startsWith('@')) {
+        targetUser = targetUser.substring(1);
+      }
       return {
         optionIndex: num - 1,
-        targetUser: match[2].toLowerCase(),
+        targetUser: targetUser,
         points: parseInt(match[3], 10)
       };
     }
   }
   return null;
+}
+
+/**
+ * Extrae comando de admin para eliminar el voto de un usuario.
+ * Ejemplos:
+ *  - !quitarvoto usuario
+ *  - !borrarvoto @usuario
+ *  - !resetvoto usuario
+ *  - !removevote usuario
+ */
+function extractAdminRemoveVote(message) {
+  const match = message.trim().match(/^!(quitarvoto|borrarvoto|resetvoto|removevote)\s+(.+)$/i);
+  if (!match) return null;
+  let target = String(match[2] || '').trim();
+  if (!target) return null;
+  if (target.startsWith('@')) target = target.slice(1).trim();
+  if (!target) return null;
+  return { target };
+}
+
+/**
+ * Extrae comando de admin para establecer puntos fijos a un usuario SIN mover su opción.
+ * Ejemplos:
+ *  - !setpuntos usuario 25
+ *  - !puntos @usuario 25
+ *  - !setpoints Votos Anónimos 30
+ */
+function extractAdminSetPoints(message) {
+  const match = message.trim().match(/^!(setpuntos|puntos|setpoints)\s+(.+?)\s+(\d+)$/i);
+  if (!match) return null;
+  let target = String(match[2] || '').trim();
+  if (!target) return null;
+  if (target.startsWith('@')) target = target.slice(1).trim();
+  const points = parseInt(match[3], 10);
+  if (!target || !Number.isFinite(points)) return null;
+  return { target, points };
 }
 
 // ============================================================================
@@ -910,6 +1056,93 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
     return;
   }
 
+  // Comando !iniciar votacion (solo el streamer) — reactiva tras ganador
+  if ((loweredMessage === "!iniciar votacion" || loweredMessage === "!iniciarvotacion" || loweredMessage === "!iniciar votación")
+      && userKey === config.channelName.toLowerCase()) {
+    iniciarVotacion();
+    return;
+  }
+
+  // Restore snapshot (solo el streamer)
+  if (loweredMessage === "!restaurar_captura" && userKey === config.channelName.toLowerCase()) {
+    const snapshotVoters = {
+      // Opción 1: 23
+      "mithands": { choice: 0, level: 0, extraBonus: 0, fixedPoints: 11 },
+      "raulmilara79": { choice: 0, level: 0, extraBonus: 0, fixedPoints: 3 },
+      "トニーフォーリュ": { choice: 0, level: 0, extraBonus: 0, fixedPoints: 3 },
+      "srgrimx": { choice: 0, level: 0, extraBonus: 0, fixedPoints: 2 },
+      "moradorpep": { choice: 0, level: 0, extraBonus: 0, fixedPoints: 1 },
+      "ccxsnop": { choice: 0, level: 0, extraBonus: 0, fixedPoints: 1 },
+      "icarolinagi": { choice: 0, level: 0, extraBonus: 0, fixedPoints: 1 },
+      "sylarxd": { choice: 0, level: 0, extraBonus: 0, fixedPoints: 1 },
+      
+      // Opción 2: 92 (ractor09 20 + Inmaculadaconce 18 + Macusam 16 + MambiTV 7 + x1lenz 7 + James_193 7 + yisus_primero 3 = 78) + 14 faltantes = 92
+      "ractor09": { choice: 1, level: 0, extraBonus: 0, fixedPoints: 20 },
+      "inmaculadaconce": { choice: 1, level: 0, extraBonus: 0, fixedPoints: 18 },
+      "macusam": { choice: 1, level: 0, extraBonus: 0, fixedPoints: 16 },
+      "mambitv": { choice: 1, level: 0, extraBonus: 0, fixedPoints: 7 },
+      "x1lenz": { choice: 1, level: 0, extraBonus: 0, fixedPoints: 7 },
+      "james_193": { choice: 1, level: 0, extraBonus: 0, fixedPoints: 7 },
+      "yisus_primero": { choice: 1, level: 0, extraBonus: 0, fixedPoints: 3 },
+      "votos_anonimos_op2": { choice: 1, level: 0, extraBonus: 0, fixedPoints: 14 },
+      
+      // Opción 3: 7
+      "broxa24": { choice: 2, level: 0, extraBonus: 0, fixedPoints: 4 },
+      "jookerlan": { choice: 2, level: 0, extraBonus: 0, fixedPoints: 2 },
+      "oribor_tv": { choice: 2, level: 0, extraBonus: 0, fixedPoints: 1 },
+      
+      // Opción 4: 17
+      "liiukiin": { choice: 3, level: 0, extraBonus: 0, fixedPoints: 8 },
+      "reichskanz": { choice: 3, level: 0, extraBonus: 0, fixedPoints: 4 },
+      "bitterbitz": { choice: 3, level: 0, extraBonus: 0, fixedPoints: 2 },
+      "c_h_a_n_d_a_l_f": { choice: 3, level: 0, extraBonus: 0, fixedPoints: 2 },
+      "azu_nai": { choice: 3, level: 0, extraBonus: 0, fixedPoints: 1 },
+      
+      // Opción 5: 5
+      "xxchusmiflowxx": { choice: 4, level: 0, extraBonus: 0, fixedPoints: 3 },
+      "aitorgp91": { choice: 4, level: 0, extraBonus: 0, fixedPoints: 1 },
+      "muchachodelnorth": { choice: 4, level: 0, extraBonus: 0, fixedPoints: 1 },
+      
+      // Opción 6: 67 (diegori98_ 5 + MrKemm 3 + The_Panadero_Gamer 2 + oversilence 2 + xronix 1 + xporin 1 = 14) + 53 faltantes = 67
+      "diegori98_": { choice: 5, level: 0, extraBonus: 0, fixedPoints: 5 },
+      "mrkemm": { choice: 5, level: 0, extraBonus: 0, fixedPoints: 3 },
+      "the_panadero_gamer": { choice: 5, level: 0, extraBonus: 0, fixedPoints: 2 },
+      "oversilence": { choice: 5, level: 0, extraBonus: 0, fixedPoints: 2 },
+      "xronix": { choice: 5, level: 0, extraBonus: 0, fixedPoints: 1 },
+      "xporin": { choice: 5, level: 0, extraBonus: 0, fixedPoints: 1 },
+      "votos_anonimos_op6": { choice: 5, level: 0, extraBonus: 0, fixedPoints: 53 }
+    };
+    
+    const snapshotNames = {
+      "mithands": "Mithands", "raulmilara79": "RaulMilara79", "トニーフォーリュ": "トニーフォーリュ",
+      "srgrimx": "SrGrimx", "moradorpep": "moradorpep", "ccxsnop": "ccxsnop",
+      "icarolinagi": "ICarolinaGI", "sylarxd": "sylarxd", "ractor09": "ractor09",
+      "inmaculadaconce": "Inmaculadaconce", "macusam": "Macusam",
+      "mambitv": "MambiTV", "x1lenz": "x1lenz", "james_193": "James_193",
+      "yisus_primero": "yisus_primero", "votos_anonimos_op2": "Votos Anónimos",
+      "broxa24": "BrOxA24", "jookerlan": "jookerlan", "oribor_tv": "oribor_tv", 
+      "liiukiin": "Liiukiin", "reichskanz": "ReichSkanZ", "bitterbitz": "BitterBitZ", 
+      "c_h_a_n_d_a_l_f": "c_h_a_n_d_a_l_f", "azu_nai": "azu_nai",
+      "xxchusmiflowxx": "XxChusmiFlowxX", "aitorgp91": "aitorgp91", "muchachodelnorth": "muchachodelnorth",
+      "diegori98_": "diegori98_", "mrkemm": "MrKemm", "the_panadero_gamer": "The_Panadero_Gamer", 
+      "oversilence": "oversilence", "xronix": "xronix", "xporin": "xporin",
+      "votos_anonimos_op6": "Votos Anónimos"
+    };
+
+    userVotes.clear();
+    userDisplayNames.clear();
+    
+    for (const [k, v] of Object.entries(snapshotVoters)) {
+      userVotes.set(k, v);
+      userDisplayNames.set(k, snapshotNames[k]);
+    }
+
+    recalculateAllVotes();
+    refreshUI();
+    saveState();
+    return;
+  }
+
   // Reset de opción específica (solo el streamer)
   const resetOptionMatch = loweredMessage.match(/^!(\d{1,2})\s+reset$/);
   if (resetOptionMatch && userKey === config.channelName.toLowerCase()) {
@@ -920,9 +1153,126 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
   
   // ADMIN: Asignar voto manualmente
   if (userKey === config.channelName.toLowerCase()) {
+    // ADMIN: Establecer puntos fijos sin mover opción
+    const setPointsCmd = extractAdminSetPoints(message);
+    if (setPointsCmd) {
+      const targetRaw = setPointsCmd.target;
+      const targetLower = targetRaw.toLowerCase();
+      const newPoints = Math.min(setPointsCmd.points, MAX_USER_WEIGHT);
+
+      const targetsToUpdate = new Set();
+
+      // 1) Direct key by login
+      if (userVotes.has(targetLower)) {
+        targetsToUpdate.add(targetLower);
+      }
+
+      // 2) By exact display-name
+      for (const [k, v] of userDisplayNames.entries()) {
+        if (typeof v === 'string' && v.toLowerCase() === targetLower) {
+          targetsToUpdate.add(k.toLowerCase());
+        }
+      }
+
+      // Fallback: key match ignoring casing
+      if (targetsToUpdate.size === 0) {
+        for (const k of userVotes.keys()) {
+          if (String(k).toLowerCase() === targetLower) {
+            targetsToUpdate.add(String(k).toLowerCase());
+          }
+        }
+      }
+
+      let updated = 0;
+      for (const targetUserKey of targetsToUpdate) {
+        const existingData = userVotes.get(targetUserKey);
+        if (!existingData) continue;
+
+        userVotes.set(targetUserKey, {
+          ...existingData,
+          fixedPoints: newPoints,
+        });
+        updated++;
+      }
+
+      recalculateAllVotes();
+      refreshUI();
+      saveState();
+
+      if (updated === 0) {
+        setStatus(`No encontré votos para: ${targetRaw}`);
+        console.log(`[Admin] ${userKey} tried to set points for "${targetRaw}", but none found.`);
+      } else if (updated === 1) {
+        setStatus(`Puntos actualizados: ${targetRaw} -> ${newPoints}`);
+        console.log(`[Admin] ${userKey} set fixed points for "${targetRaw}" to ${newPoints}.`);
+      } else {
+        setStatus(`Puntos actualizados (${updated}): ${targetRaw} -> ${newPoints}`);
+        console.log(`[Admin] ${userKey} set fixed points for ${updated} voters named "${targetRaw}" to ${newPoints}.`);
+      }
+      return;
+    }
+
+    // ADMIN: Eliminar voto de un usuario
+    const removeCmd = extractAdminRemoveVote(message);
+    if (removeCmd) {
+      const targetRaw = removeCmd.target;
+      const targetLower = targetRaw.toLowerCase();
+
+      // Collect targets by:
+      // 1) direct userKey (login)
+      // 2) exact display-name match (can include spaces)
+      const targetsToDelete = new Set();
+
+      if (userVotes.has(targetLower)) {
+        targetsToDelete.add(targetLower);
+      }
+
+      for (const [k, v] of userDisplayNames.entries()) {
+        if (typeof v === 'string' && v.toLowerCase() === targetLower) {
+          targetsToDelete.add(k.toLowerCase());
+        }
+      }
+
+      // Fallback: if userDisplayNames didn't have it but userVotes key exists with different casing
+      if (targetsToDelete.size === 0) {
+        for (const k of userVotes.keys()) {
+          if (String(k).toLowerCase() === targetLower) {
+            targetsToDelete.add(String(k).toLowerCase());
+          }
+        }
+      }
+
+      // Apply deletions
+      for (const targetUserKey of targetsToDelete) {
+        const existingData = userVotes.get(targetUserKey);
+        if (existingData && existingData.choice >= 0 && existingData.choice < total) {
+          const weight = existingData.fixedPoints ?? calculateTotalWeight(existingData.level, existingData.extraBonus || 0);
+          votesByIndex[existingData.choice] = Math.max(0, votesByIndex[existingData.choice] - weight);
+        }
+        userVotes.delete(targetUserKey);
+      }
+
+      recalculateAllVotes();
+      refreshUI();
+      saveState();
+      const removedCount = targetsToDelete.size;
+      if (removedCount === 0) {
+        setStatus(`No encontré votos para: ${targetRaw}`);
+        console.log(`[Admin] ${userKey} tried to remove vote for "${targetRaw}", but none found.`);
+      } else if (removedCount === 1) {
+        setStatus(`Voto eliminado: ${targetRaw}`);
+        console.log(`[Admin] ${userKey} removed vote for "${targetRaw}".`);
+      } else {
+        setStatus(`Votos eliminados (${removedCount}): ${targetRaw}`);
+        console.log(`[Admin] ${userKey} removed ${removedCount} votes for "${targetRaw}".`);
+      }
+      return;
+    }
+
     const adminCmd = extractAdminVote(message);
     if (adminCmd) {
       const { optionIndex, targetUser, points } = adminCmd;
+      const clampedPoints = Math.min(points, MAX_USER_WEIGHT);
       
       const existingData = userVotes.get(targetUser);
       if (existingData && existingData.choice >= 0 && existingData.choice < total) {
@@ -936,14 +1286,14 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
         choice: optionIndex,
         level: level,
         extraBonus: 0,
-        fixedPoints: points
+        fixedPoints: clampedPoints
       };
       
       userVotes.set(targetUser, newData);
       userDisplayNames.set(targetUser, targetUser);
-      votesByIndex[optionIndex] += points;
+      votesByIndex[optionIndex] += clampedPoints;
       
-      console.log(`[Admin] ${userKey} assigned ${targetUser} to option ${optionIndex + 1} with ${points} fixed points.`);
+      console.log(`[Admin] ${userKey} assigned ${targetUser} to option ${optionIndex + 1} with ${clampedPoints} fixed points${points !== clampedPoints ? ` (capped from ${points})` : ''}.`);
       
       refreshUI();
       saveState();
@@ -951,6 +1301,12 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
     }
   }
   
+  // Si las votaciones están detenidas (hay un ganador), ignorar votos normales
+  if (!votingActive) {
+    console.log(`[Vote] Voting is stopped (winner declared). Ignoring vote from ${userKey}.`);
+    return;
+  }
+
   const voteIndex = extractVote(message);
   
   // ── LOCK: Prevent concurrent processing for the same user ──
@@ -970,6 +1326,9 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
   processingLock.add(userKey);
   
   try {
+  
+  // Guardar/Actualizar el display name
+  userDisplayNames.set(userKey, displayName);
   
   // Always read LIVE state (not a stale snapshot from before awaits)
   let userData = userVotes.get(userKey) || null;
@@ -995,9 +1354,11 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
     const oldWeight = userData.fixedPoints ?? calculateTotalWeight(userData.level, userData.extraBonus || 0);
     
     if (userData.fixedPoints !== undefined) {
-      userData.fixedPoints += 1;
+      // Cap fixedPoints al incrementar
+      userData.fixedPoints = Math.min(userData.fixedPoints + 1, MAX_USER_WEIGHT);
     } else {
       userData.extraBonus = (userData.extraBonus || 0) + 1;
+      // El cap final lo aplica calculateTotalWeight internamente
     }
     
     // NEW FIX: If redemption includes a vote (e.g. "!2"), allow changing choice
@@ -1029,6 +1390,7 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
     refreshUI();
     saveState();
     return;
+
   }
   
   // CASO 2: Retirada de voto (!notX)
@@ -1091,9 +1453,16 @@ async function processVote(userKey, voteIndex, existingData) {
     let extraBonus = 0;
     let fixedPoints = undefined;
     if (currentData) {
-      extraBonus = currentData.extraBonus || 0;
-      if (currentData.fixedPoints !== undefined) {
-        fixedPoints = currentData.fixedPoints;
+      // Si el usuario fue purgado por ser votante del ganador anterior,
+      // arranca sin extraBonus ni fixedPoints aunque haya datos residuales.
+      if (clearedWinnerVoters.has(userKey)) {
+        console.log(`[Vote] ${userKey} was a cleared winner voter — resetting extraBonus to 0.`);
+        clearedWinnerVoters.delete(userKey); // solo aplicar una vez
+      } else {
+        extraBonus = currentData.extraBonus || 0;
+        if (currentData.fixedPoints !== undefined) {
+          fixedPoints = currentData.fixedPoints;
+        }
       }
     }
     
