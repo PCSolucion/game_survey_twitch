@@ -7,7 +7,7 @@ window.OPTIONS_DATA = [
   { title: "THE WITCHER 2", image: "auto" },
   { title: "WOLFENSTEIN: THE NEW ORDER", image: "auto" },
   { title: "GTA SAN ANDREAS", image: "auto" },
-  { title: "TOMB RAIDER 2013", image: "auto" },
+  { title: "Tainted Grail: The Fall of AvaloN", image: "auto", objectPosition: "left" },
 ];
 
 // ═══════════════════════════════════════════════════

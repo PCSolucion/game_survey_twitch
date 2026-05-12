@@ -21,11 +21,25 @@
 }
 
 :root {
-  /* F1 Core Colors — aligned with f1-theme.css */
-  --f1-red: #d80d0d;
-  --f1-red-rgb: 216, 13, 13;
-  --f1-red-bright: #ff2d22;
-  --f1-red-dark: #b00500;
+  /* Acento principal — #008ec2 y tonalidades (antes paleta tipo F1 rojo) */
+  --f1-primary: #008ec2;
+  --f1-primary-rgb: 0, 142, 194;
+  --f1-primary-bright: #00b4f5;
+  --f1-primary-dark: #006a93;
+
+  /* Colores por opción de voto — misma familia que #008ec2 (cian / teal) */
+  --slot-1: #085a73;
+  --slot-1-rgb: 8, 90, 115;
+  --slot-2: #008ec2;
+  --slot-2-rgb: 0, 142, 194;
+  --slot-3: #00a3c4;
+  --slot-3-rgb: 0, 163, 196;
+  --slot-4: #2d8eb8;
+  --slot-4-rgb: 45, 142, 184;
+  --slot-5: #4a9eb8;
+  --slot-5-rgb: 74, 158, 184;
+  --slot-6: #5fa9c4;
+  --slot-6-rgb: 95, 169, 196;
 
   --f1-white: #ffffff;
   --f1-black: #0f1014;
@@ -48,13 +62,13 @@
   --f1-purple: #8A29A4;
 
   /* Semantic Tokens */
-  --accent: var(--f1-red);
-  --accent-bright: var(--f1-red-bright);
-  --accent-dark: var(--f1-red-dark);
-  --accent-rgb: var(--f1-red-rgb);
+  --accent: var(--f1-primary);
+  --accent-bright: var(--f1-primary-bright);
+  --accent-dark: var(--f1-primary-dark);
+  --accent-rgb: var(--f1-primary-rgb);
 
-  --cyber-red: var(--f1-red);
-  --cyber-red-rgb: var(--f1-red-rgb);
+  --cyber-accent: var(--f1-primary);
+  --cyber-accent-rgb: var(--f1-primary-rgb);
   --cyber-cyan: var(--f1-green);
   --cyber-cyan-rgb: var(--f1-green-rgb);
 
@@ -136,7 +150,7 @@ body {
 .bg-orb.orb-1 {
   width: 700px;
   height: 700px;
-  background: rgba(var(--f1-red-rgb), 0.08);
+  background: rgba(var(--f1-primary-rgb), 0.10);
   top: -300px;
   left: -200px;
   animation: drift 30s ease-in-out infinite;
@@ -187,7 +201,7 @@ body {
 /* LEFT PANEL — Title section */
 .hud-panel:first-child {
   flex: 0 0 420px;
-  background: rgba(var(--f1-red-rgb), 0.92);
+  background: rgba(var(--f1-primary-rgb), 0.92);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   clip-path: polygon(0 0, 100% 0, 75% 100%, 0 100%);
@@ -198,7 +212,7 @@ body {
   position: relative;
 }
 
-/* Subtle diagonal stripe pattern on the red panel */
+/* Subtle diagonal stripe pattern on el panel de acento (#008ec2) */
 .hud-panel:first-child::after {
   content: "";
   position: absolute;
@@ -335,9 +349,9 @@ body {
   -webkit-backdrop-filter: blur(8px);
   height: 100%;
 
-  /* Clean border — 1px subtle, red top accent */
+  /* Clean border — 1px subtle, acento superior #008ec2 */
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-top: 3px solid var(--f1-red);
+  border-top: 3px solid var(--f1-primary);
 
   padding: 18px 18px 70px 18px;
   position: relative;
@@ -348,6 +362,11 @@ body {
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+/* Carátulas en escala de grises — diseño más uniforme */
+.card .card-bg-img {
+  filter: grayscale(1);
 }
 
 /* Dark overlay for readability over game images */
@@ -382,7 +401,7 @@ body {
   30% {
     transform: scale(1.015);
     filter: brightness(1.15);
-    box-shadow: 0 0 20px rgba(var(--f1-red-rgb), 0.3);
+    box-shadow: 0 0 20px rgba(var(--f1-primary-rgb), 0.3);
   }
   100% {
     transform: scale(1);
@@ -392,15 +411,15 @@ body {
 
 .card.pulse-voted {
   animation: vote-pulse 0.4s ease-out;
-  border-top-color: var(--f1-red-bright) !important;
+  border-top-color: var(--f1-primary-bright) !important;
 }
 
 .card:hover {
   transform: translateY(-4px);
   box-shadow:
     0 12px 40px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(var(--f1-red-rgb), 0.15);
-  border-top-color: var(--f1-red-bright);
+    0 0 0 1px rgba(var(--f1-primary-rgb), 0.15);
+  border-top-color: var(--f1-primary-bright);
 }
 
 .card-wrapper.entering {
@@ -449,7 +468,7 @@ body {
 
 .option-number.big-number {
   font-size: 28px;
-  background: rgba(var(--f1-red-rgb), 0.88);
+  background: rgba(var(--f1-primary-rgb), 0.88);
   border: none;
   border-top: none;
   padding: 8px 20px;
@@ -465,27 +484,27 @@ body {
   letter-spacing: -0.5px;
 }
 
-/* SLOT 1 (!1) — Purple */
+/* SLOT 1 (!1) */
 .card-wrapper:nth-child(1) .option-number {
-  background: #8A29A4;
+  background: var(--slot-1);
   color: var(--f1-white);
-  box-shadow: 0 4px 16px rgba(138, 41, 164, 0.3);
+  box-shadow: 0 4px 16px rgba(var(--slot-1-rgb), 0.35);
   font-weight: 900;
 }
 
-/* SLOT 2 (!2) — Green */
+/* SLOT 2 (!2) */
 .card-wrapper:nth-child(2) .option-number {
-  background: #72EF4B;
-  color: #000;
-  box-shadow: 0 4px 16px rgba(114, 239, 75, 0.3);
+  background: var(--slot-2);
+  color: var(--f1-white);
+  box-shadow: 0 4px 16px rgba(var(--slot-2-rgb), 0.35);
   font-weight: 900;
 }
 
-/* SLOT 3 (!3 - !10) — Gold/Yellow */
+/* SLOT 3 (!3 - !10 carrusel) */
 .card-wrapper:nth-child(3) .option-number {
-  background: #e0c839;
-  color: #000;
-  box-shadow: 0 4px 16px rgba(224, 200, 57, 0.3);
+  background: var(--slot-3);
+  color: var(--f1-white);
+  box-shadow: 0 4px 16px rgba(var(--slot-3-rgb), 0.35);
   font-weight: 900;
 }
 
@@ -508,7 +527,7 @@ body {
   background: rgba(var(--f1-black-rgb), 0.42);
   backdrop-filter: blur(4px);
   padding: 8px 14px;
-  border-left: 3px solid var(--f1-red);
+  border-left: 3px solid var(--f1-primary);
   border-radius: 0 4px 4px 0;
   box-shadow: none;
   flex: 1;
@@ -570,7 +589,7 @@ body {
   -webkit-backdrop-filter: blur(6px);
   border: none !important;
   border-radius: 0 !important;
-  border-left: 2px solid rgba(var(--f1-red-rgb), 0.4) !important;
+  border-left: 2px solid rgba(var(--f1-primary-rgb), 0.4) !important;
   padding: 4px 10px;
   margin-bottom: 2px;
   font-size: 14px;
@@ -581,9 +600,9 @@ body {
 }
 
 .voter-chip .lvl-tag {
-  background: rgba(var(--f1-red-rgb), 0.1);
-  color: rgba(var(--f1-red-rgb), 0.9);
-  border: 1px solid rgba(var(--f1-red-rgb), 0.3);
+  background: rgba(var(--f1-primary-rgb), 0.1);
+  color: rgba(var(--f1-primary-rgb), 0.9);
+  border: 1px solid rgba(var(--f1-primary-rgb), 0.3);
   border-radius: 3px;
   width: 20px;
   height: 20px;
@@ -608,7 +627,7 @@ body {
 }
 
 .pts-tag {
-  color: var(--f1-red);
+  color: var(--f1-primary);
   font-weight: 800;
   font-family: var(--font-display);
   margin-left: 6px;
@@ -624,7 +643,7 @@ body {
 .hint-header {
   position: relative;
   width: fit-content;
-  background: rgba(var(--f1-red-rgb), 0.92);
+  background: rgba(var(--f1-primary-rgb), 0.92);
   padding: 10px 50px 10px 30px;
   margin-bottom: 20px;
   clip-path: polygon(0 0, 100% 0, 85% 100%, 0 100%);
@@ -672,7 +691,7 @@ body {
 .voter-chip:hover {
   background: rgba(var(--f1-dark-rgb), 0.5) !important;
   transform: translateX(3px);
-  border-left-color: var(--f1-red) !important;
+  border-left-color: var(--f1-primary) !important;
 }
 
 /* ═══════════════════
@@ -689,7 +708,7 @@ body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-top: 2px solid var(--f1-red);
+  border-top: 2px solid var(--f1-primary);
   padding: 12px 18px;
   border-radius: 4px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
@@ -701,7 +720,7 @@ body {
 .vote-count {
   font-family: var(--font-display);
   font-weight: 900;
-  font-size: 40px;
+  font-size: 34px;
   line-height: 1;
   color: var(--f1-white);
   text-shadow: none;
@@ -711,7 +730,7 @@ body {
 .vote-count::after {
   content: " Votos";
   font-family: var(--font-primary);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--f1-gray-300);
   margin-left: 4px;
@@ -722,99 +741,149 @@ body {
 
 .label {
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: 14px;
   color: var(--f1-gray-300);
   margin-top: 4px;
   transition: all 400ms ease;
 }
 
 /* ═══════════════════
-   FIXED SLOT COLORS — F1 Team Branding
+   COLORES POR OPCIÓN — paleta cian/teal unificada (--f1-primary)
    ═══════════════════ */
 
-/* SLOT 1 Highlights (Purple) */
+/* SLOT 1 */
 .card-wrapper:nth-child(1) .card {
-  border-top: 3px solid #8A29A4;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(138, 41, 164, 0.1);
+  border-top: 3px solid var(--slot-1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--slot-1-rgb), 0.12);
 }
 .card-wrapper:nth-child(1) .game-title {
-  border-left-color: #8A29A4 !important;
+  border-left-color: var(--slot-1) !important;
 }
 .card-wrapper:nth-child(1) .votes-badge {
-  background: rgba(138, 41, 164, 0.1);
-  border-color: rgba(138, 41, 164, 0.3);
-  border-top: 3px solid #8A29A4;
+  background: rgba(var(--slot-1-rgb), 0.12);
+  border-color: rgba(var(--slot-1-rgb), 0.28);
+  border-top: 3px solid var(--slot-1);
 }
 .card-wrapper:nth-child(1) .voter-chip {
-  border-left-color: rgba(138, 41, 164, 0.5) !important;
+  border-left-color: rgba(var(--slot-1-rgb), 0.5) !important;
 }
 .card-wrapper:nth-child(1) .pts-tag {
-  color: #8A29A4;
+  color: var(--slot-1);
 }
 
-/* SLOT 2 Highlights (Green) */
+/* SLOT 2 */
 .card-wrapper:nth-child(2) .card {
-  border-top: 3px solid #72EF4B;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(114, 239, 75, 0.1);
+  border-top: 3px solid var(--slot-2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--slot-2-rgb), 0.12);
 }
 .card-wrapper:nth-child(2) .game-title {
-  border-left-color: #72EF4B !important;
+  border-left-color: var(--slot-2) !important;
 }
 .card-wrapper:nth-child(2) .votes-badge {
-  background: rgba(114, 239, 75, 0.1);
-  border-color: rgba(114, 239, 75, 0.3);
-  border-top: 3px solid #72EF4B;
+  background: rgba(var(--slot-2-rgb), 0.12);
+  border-color: rgba(var(--slot-2-rgb), 0.28);
+  border-top: 3px solid var(--slot-2);
 }
 .card-wrapper:nth-child(2) .voter-chip {
-  border-left-color: rgba(114, 239, 75, 0.5) !important;
+  border-left-color: rgba(var(--slot-2-rgb), 0.5) !important;
 }
 .card-wrapper:nth-child(2) .pts-tag {
-  color: #72EF4B;
+  color: var(--slot-2);
 }
 
-/* SLOT 3 Highlights (Gold) */
+/* SLOT 3 (carrusel) */
 .card-wrapper:nth-child(3) .card {
-  border-top: 3px solid #e0c839;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(224, 200, 57, 0.1);
+  border-top: 3px solid var(--slot-3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--slot-3-rgb), 0.12);
 }
 .card-wrapper:nth-child(3) .game-title {
-  border-left-color: #e0c839 !important;
+  border-left-color: var(--slot-3) !important;
+}
+.card-wrapper:nth-child(3) .votes-badge {
+  background: rgba(var(--slot-3-rgb), 0.12);
+  border-color: rgba(var(--slot-3-rgb), 0.28);
+  border-top: 3px solid var(--slot-3);
 }
 .card-wrapper:nth-child(3) .voter-chip {
-  border-left-color: rgba(224, 200, 57, 0.5) !important;
+  border-left-color: rgba(var(--slot-3-rgb), 0.5) !important;
+}
+.card-wrapper:nth-child(3) .pts-tag {
+  color: var(--slot-3);
 }
 
-/* SLOT 4 Highlights (Blue) */
+/* SLOT 4 */
 .card-wrapper:nth-child(4) .card {
-  border-top: 3px solid #3498db;
+  border-top: 3px solid var(--slot-4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--slot-4-rgb), 0.12);
 }
 .card-wrapper:nth-child(4) .game-title {
-  border-left-color: #3498db !important;
+  border-left-color: var(--slot-4) !important;
+}
+.card-wrapper:nth-child(4) .votes-badge {
+  background: rgba(var(--slot-4-rgb), 0.12);
+  border-color: rgba(var(--slot-4-rgb), 0.28);
+  border-top: 3px solid var(--slot-4);
+}
+.card-wrapper:nth-child(4) .voter-chip {
+  border-left-color: rgba(var(--slot-4-rgb), 0.5) !important;
+}
+.card-wrapper:nth-child(4) .pts-tag {
+  color: var(--slot-4);
 }
 .card-wrapper:nth-child(4) .option-number {
-  background: #3498db;
+  background: var(--slot-4);
+  color: var(--f1-white);
+  box-shadow: 0 4px 16px rgba(var(--slot-4-rgb), 0.35);
 }
 
-/* SLOT 5 Highlights (Orange) */
+/* SLOT 5 */
 .card-wrapper:nth-child(5) .card {
-  border-top: 3px solid #e67e22;
+  border-top: 3px solid var(--slot-5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--slot-5-rgb), 0.12);
 }
 .card-wrapper:nth-child(5) .game-title {
-  border-left-color: #e67e22 !important;
+  border-left-color: var(--slot-5) !important;
+}
+.card-wrapper:nth-child(5) .votes-badge {
+  background: rgba(var(--slot-5-rgb), 0.12);
+  border-color: rgba(var(--slot-5-rgb), 0.28);
+  border-top: 3px solid var(--slot-5);
+}
+.card-wrapper:nth-child(5) .voter-chip {
+  border-left-color: rgba(var(--slot-5-rgb), 0.5) !important;
+}
+.card-wrapper:nth-child(5) .pts-tag {
+  color: var(--slot-5);
 }
 .card-wrapper:nth-child(5) .option-number {
-  background: #e67e22;
+  background: var(--slot-5);
+  color: var(--f1-white);
+  box-shadow: 0 4px 16px rgba(var(--slot-5-rgb), 0.35);
 }
 
-/* SLOT 6 Highlights (Pink) */
+/* SLOT 6 */
 .card-wrapper:nth-child(6) .card {
-  border-top: 3px solid #e91e63;
+  border-top: 3px solid var(--slot-6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(var(--slot-6-rgb), 0.12);
 }
 .card-wrapper:nth-child(6) .game-title {
-  border-left-color: #e91e63 !important;
+  border-left-color: var(--slot-6) !important;
+}
+.card-wrapper:nth-child(6) .votes-badge {
+  background: rgba(var(--slot-6-rgb), 0.12);
+  border-color: rgba(var(--slot-6-rgb), 0.28);
+  border-top: 3px solid var(--slot-6);
+}
+.card-wrapper:nth-child(6) .voter-chip {
+  border-left-color: rgba(var(--slot-6-rgb), 0.5) !important;
+}
+.card-wrapper:nth-child(6) .pts-tag {
+  color: var(--slot-6);
 }
 .card-wrapper:nth-child(6) .option-number {
-  background: #e91e63;
+  background: var(--slot-6);
+  color: var(--f1-white);
+  box-shadow: 0 4px 16px rgba(var(--slot-6-rgb), 0.35);
 }
 
 /* ═══════════════════
@@ -840,8 +909,8 @@ body {
 .hint {
   color: rgba(255, 255, 255, 0.9) !important;
   font-family: var(--font-mono) !important;
-  background: rgba(var(--f1-red-rgb), 0.10) !important;
-  border-left: 4px solid var(--f1-red) !important;
+  background: rgba(var(--f1-primary-rgb), 0.10) !important;
+  border-left: 4px solid var(--f1-primary) !important;
   padding: 10px 22px !important;
   border-radius: 0 4px 4px 0;
   font-size: 28px !important;
@@ -860,7 +929,7 @@ body {
 }
 
 .status span {
-  color: var(--f1-red);
+  color: var(--f1-primary);
 }
 
 /* ═══════════════════
@@ -880,7 +949,7 @@ body {
 .winner-card {
   background: rgba(var(--f1-black-rgb), 0.85);
   border: none;
-  border-top: 4px solid var(--f1-red);
+  border-top: 4px solid var(--f1-primary);
   padding: 40px 60px;
   border-radius: 8px;
   box-shadow: 0 12px 60px rgba(0, 0, 0, 0.6);
@@ -920,7 +989,7 @@ body {
   bottom: 5px;
   display: none;
   background: rgba(var(--f1-black-rgb), 0.82);
-  border-left: 3px solid var(--f1-red);
+  border-left: 3px solid var(--f1-primary);
   border-radius: 0 4px 4px 0;
   padding: 10px 20px;
   color: var(--text);
@@ -974,10 +1043,10 @@ body {
 }
 
 .carousel-dot.active {
-  background: var(--f1-red);
-  border-color: var(--f1-red);
+  background: var(--f1-primary);
+  border-color: var(--f1-primary);
   transform: scale(1.3);
-  box-shadow: 0 0 8px rgba(var(--f1-red-rgb), 0.4);
+  box-shadow: 0 0 8px rgba(var(--f1-primary-rgb), 0.4);
 }
 
 /* Command label tooltip on dots */
@@ -997,13 +1066,13 @@ body {
 
 .carousel-dot.active .carousel-dot-label {
   opacity: 1;
-  color: var(--f1-red);
+  color: var(--f1-primary);
   font-weight: 700;
 }
 
-/* Carousel card border accent */
+/* Carousel card border accent (misma familia que slot 3) */
 .carousel-card {
-  border-top-color: #e0c839 !important;
+  border-top-color: var(--slot-3) !important;
   position: relative;
 }
 

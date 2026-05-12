@@ -99,6 +99,33 @@ function calculateTotalWeight(level, extraBonus) {
 }
 
 /**
+ * Obtiene la fecha actual en formato YYYY-MM-DD en la zona horaria de España
+ */
+function getSpanishDate() {
+  return new Intl.DateTimeFormat('en-CA', { 
+    timeZone: 'Europe/Madrid', 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).format(new Date());
+}
+
+/**
+ * Comprueba si el canal está en directo usando decapi.me
+ */
+async function isChannelLive() {
+  try {
+    const response = await fetch(`https://decapi.me/twitch/uptime/${config.channelName.toLowerCase()}`);
+    const text = await response.text();
+    // Si no está en directo, devuelve algo como "Channel is offline" o similar
+    return !text.toLowerCase().includes("offline");
+  } catch (e) {
+    console.error('[LiveCheck] Error checking status:', e);
+    return true; // En caso de error, permitimos para no bloquear por fallo de API externa
+  }
+}
+
+/**
  * Recalcula votesByIndex desde cero basándose en userVotes.
  */
 function recalculateAllVotes() {
@@ -231,6 +258,11 @@ function loadState() {
           
           if (typeof data.fixedPoints === 'number') {
             userData.fixedPoints = data.fixedPoints;
+          }
+
+          // Preservar lastExtraDate para que el límite diario sobreviva recargas
+          if (typeof data.lastExtraDate === 'string') {
+            userData.lastExtraDate = data.lastExtraDate;
           }
           
           // Only load if choice is valid for current total
@@ -617,7 +649,7 @@ function updateVoteBars() {
     const counter = card.querySelector(".vote-count");
     const label = card.querySelector(".label");
     
-    if (counter) counter.textContent = `${safeCount}`;
+    if (counter) counter.textContent = `${Math.round(Number(safeCount) * 10) / 10}`;
     if (label) label.textContent = `${percent}%`;
   });
 }
@@ -672,7 +704,7 @@ function updateVoterLists() {
       
       const ptsTag = document.createElement('span');
       ptsTag.className = 'pts-tag';
-      ptsTag.textContent = `+${voter.weight}`;
+      ptsTag.textContent = `+${Math.round(Number(voter.weight) * 10) / 10}`;
       
       chip.appendChild(nameTag);
       chip.appendChild(ptsTag);
@@ -1393,6 +1425,45 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
 
   }
   
+  // CASO 1.5: Comandos de Voto Extra (!extra, !bonus)
+  const isExtraCommand = loweredMessage === "!extra" || loweredMessage === "!bonus";
+  if (isExtraCommand) {
+    if (!userData || userData.choice === -1) {
+      console.log(`[Extra] User ${userKey} tried !extra but has no active vote.`);
+      return;
+    }
+
+    const today = getSpanishDate();
+    if (userData.lastExtraDate === today) {
+      console.log(`[Extra] User ${userKey} already used their daily extra.`);
+      return;
+    }
+
+    // Verificar si el canal está en directo
+    const isLive = await isChannelLive();
+    if (!isLive) {
+      console.log(`[Extra] Denied: Channel is offline.`);
+      return;
+    }
+
+    // Calcular valor: 1% del nivel (mínimo 0.2), redondeado a 1 decimal
+    const bonusValue = Math.round(Math.max(0.2, userData.level * 0.01) * 10) / 10;
+    
+    // Actualizar datos: sumar bonus y registrar fecha
+    userData.extraBonus = Math.round(((userData.extraBonus || 0) + bonusValue) * 10) / 10;
+    userData.lastExtraDate = today;
+
+    // IMPORTANTE: guardar ANTES de recalcular para que el recálculo use datos actualizados
+    userVotes.set(userKey, userData);
+    recalculateAllVotes();
+    
+    console.log(`[Extra] User ${userKey} added +${bonusValue.toFixed(1)} pts. Total bonus: ${userData.extraBonus.toFixed(1)}`);
+    
+    refreshUI();
+    saveState();
+    return;
+  }
+  
   // CASO 2: Retirada de voto (!notX)
   const withdrawIndex = extractWithdrawal(message);
   if (withdrawIndex !== null) {
@@ -1450,6 +1521,9 @@ async function processVote(userKey, voteIndex, existingData) {
     // Use liveData if available (it's fresher than existingData)
     const currentData = liveData || existingData;
     
+    // Determinar si el usuario está CAMBIANDO de opción (ya tenía un voto válido en otra opción)
+    const isSwitching = currentData && currentData.choice >= 0 && currentData.choice < total && currentData.choice !== voteIndex;
+    
     let extraBonus = 0;
     let fixedPoints = undefined;
     if (currentData) {
@@ -1458,6 +1532,12 @@ async function processVote(userKey, voteIndex, existingData) {
       if (clearedWinnerVoters.has(userKey)) {
         console.log(`[Vote] ${userKey} was a cleared winner voter — resetting extraBonus to 0.`);
         clearedWinnerVoters.delete(userKey); // solo aplicar una vez
+      } else if (isSwitching) {
+        // PENALIZACIÓN: Al cambiar de opción pierde extraBonus y fixedPoints.
+        // Solo conserva los puntos base por su nivel.
+        console.log(`[Vote] ${userKey} is switching options — losing extraBonus (${currentData.extraBonus || 0}) and fixedPoints (${currentData.fixedPoints ?? 'N/A'}). Only base weight remains.`);
+        extraBonus = 0;
+        fixedPoints = undefined;
       } else {
         extraBonus = currentData.extraBonus || 0;
         if (currentData.fixedPoints !== undefined) {
@@ -1469,7 +1549,7 @@ async function processVote(userKey, voteIndex, existingData) {
     const newWeight = fixedPoints ?? calculateTotalWeight(level, extraBonus);
     
     // Subtract old vote if switching
-    if (currentData && currentData.choice >= 0 && currentData.choice < total) {
+    if (isSwitching) {
       const oldWeight = currentData.fixedPoints ?? calculateTotalWeight(currentData.level, currentData.extraBonus || 0);
       votesByIndex[currentData.choice] = Math.max(0, votesByIndex[currentData.choice] - oldWeight);
       
@@ -1482,7 +1562,7 @@ async function processVote(userKey, voteIndex, existingData) {
       extraBonus: extraBonus
     };
     
-    // Preserve fixedPoints if admin-assigned
+    // Preserve fixedPoints only if NOT switching (switching resets them)
     if (fixedPoints !== undefined) {
       newData.fixedPoints = fixedPoints;
     }
