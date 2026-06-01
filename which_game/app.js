@@ -75,6 +75,10 @@ const userDisplayNames = new Map();   // userKey -> displayName
 const processingLock = new Set();     // Prevents concurrent processing for the same user
 const clearedWinnerVoters = new Set(); // Users purged from a winning option — must restart fresh (extraBonus=0)
 
+// Seguimiento de aumentos de votos para estadísticas de "en racha"
+const recentIncreases = [];
+let lastVotedGameIndex = -1;
+
 // ============================================================================
 // ELEMENTOS DEL DOM
 // ============================================================================
@@ -83,6 +87,14 @@ const gridEl = document.getElementById("grid");
 const statusEl = document.getElementById("status");
 const hintEl = document.getElementById("hint");
 const resetBtnEl = document.getElementById("resetBtn");
+
+// Elementos del DOM para Estadísticas
+const statsPtsNeededEl = document.getElementById("stats-pts-needed");
+const statsPtsNeededSubEl = document.getElementById("stats-pts-needed-sub");
+const statsTopVoterEl = document.getElementById("stats-top-voter");
+const statsTopVoterSubEl = document.getElementById("stats-top-voter-sub");
+const statsFastestGameEl = document.getElementById("stats-fastest-game");
+const statsFastestGameSubEl = document.getElementById("stats-fastest-game-sub");
 
 // ============================================================================
 // UTILIDADES
@@ -142,6 +154,108 @@ function recalculateAllVotes() {
   }
   
   console.log('[Recalculate] Votes recalculated:', votesByIndex);
+}
+
+// ============================================================================
+// LÓGICA DE ESTADÍSTICAS DINÁMICAS
+// ============================================================================
+
+function recordVoteIncrease(gameIndex, pointsDiff) {
+  if (pointsDiff <= 0 || gameIndex < 0 || gameIndex >= getTotalOptions()) return;
+  recentIncreases.push({
+    gameIndex,
+    points: pointsDiff,
+    timestamp: Date.now()
+  });
+  lastVotedGameIndex = gameIndex;
+  console.log(`[Stats] Recorded increase for game ${gameIndex + 1}: +${pointsDiff} pts`);
+}
+
+function updateStatsPanel() {
+  const total = getTotalOptions();
+  
+  // --- 1. PUNTOS PARA ELEGIR ---
+  let leaderIdx = -1;
+  let maxVotes = 0;
+  for (let i = 0; i < total; i++) {
+    const v = votesByIndex[i] || 0;
+    if (v > maxVotes) {
+      maxVotes = v;
+      leaderIdx = i;
+    }
+  }
+  
+  if (leaderIdx !== -1 && maxVotes > 0) {
+    const needed = Math.max(0, Math.round((WINNER_THRESHOLD - maxVotes) * 10) / 10);
+    const gameName = currentGames[leaderIdx] || `Opción ${leaderIdx + 1}`;
+    
+    if (statsPtsNeededEl) statsPtsNeededEl.textContent = `${needed} pts`;
+    if (statsPtsNeededSubEl) statsPtsNeededSubEl.textContent = `para ${gameName}`;
+  } else {
+    if (statsPtsNeededEl) statsPtsNeededEl.textContent = `${WINNER_THRESHOLD} pts`;
+    if (statsPtsNeededSubEl) statsPtsNeededSubEl.textContent = "Ningún voto registrado";
+  }
+  
+  // --- 2. TOP VOTANTE ---
+  let topVoterName = "-";
+  let maxWeight = 0;
+  
+  for (const [userKey, data] of userVotes.entries()) {
+    const { level, extraBonus, fixedPoints } = data;
+    const weight = fixedPoints ?? calculateTotalWeight(level, extraBonus);
+    if (weight > maxWeight) {
+      maxWeight = weight;
+      topVoterName = userDisplayNames.get(userKey) || userKey;
+    }
+  }
+  
+  if (maxWeight > 0) {
+    const pts = Math.round(maxWeight * 10) / 10;
+    if (statsTopVoterEl) statsTopVoterEl.textContent = topVoterName;
+    if (statsTopVoterSubEl) statsTopVoterSubEl.textContent = `Aportó +${pts} pts a la encuesta`;
+  } else {
+    if (statsTopVoterEl) statsTopVoterEl.textContent = "-";
+    if (statsTopVoterSubEl) statsTopVoterSubEl.textContent = "Nadie ha votado aún";
+  }
+  
+  // --- 3. EN RACHA ---
+  const now = Date.now();
+  const windowMs = 60000; // 60 segundos
+  
+  // Limpiar registros antiguos
+  while (recentIncreases.length > 0 && now - recentIncreases[0].timestamp > windowMs) {
+    recentIncreases.shift();
+  }
+  
+  // Calcular acumulados de aumentos
+  const totals = {};
+  for (const entry of recentIncreases) {
+    totals[entry.gameIndex] = (totals[entry.gameIndex] || 0) + entry.points;
+  }
+  
+  let fastestIdx = -1;
+  let maxDiff = 0;
+  for (const [idxStr, sum] of Object.entries(totals)) {
+    const idx = parseInt(idxStr, 10);
+    if (sum > maxDiff) {
+      maxDiff = sum;
+      fastestIdx = idx;
+    }
+  }
+  
+  if (fastestIdx !== -1 && maxDiff > 0) {
+    const gameName = currentGames[fastestIdx] || `Opción ${fastestIdx + 1}`;
+    const diffVal = Math.round(maxDiff * 10) / 10;
+    if (statsFastestGameEl) statsFastestGameEl.textContent = gameName;
+    if (statsFastestGameSubEl) statsFastestGameSubEl.textContent = `+${diffVal} pts en el último minuto`;
+  } else if (lastVotedGameIndex !== -1 && lastVotedGameIndex < total) {
+    const gameName = currentGames[lastVotedGameIndex] || `Opción ${lastVotedGameIndex + 1}`;
+    if (statsFastestGameEl) statsFastestGameEl.textContent = gameName;
+    if (statsFastestGameSubEl) statsFastestGameSubEl.textContent = "Último juego votado en el chat";
+  } else {
+    if (statsFastestGameEl) statsFastestGameEl.textContent = "-";
+    if (statsFastestGameSubEl) statsFastestGameSubEl.textContent = "Sin actividad reciente";
+  }
 }
 
 function getOptionByTitle(title) {
@@ -287,6 +401,21 @@ function loadState() {
 // ============================================================================
 
 /**
+ * Comando de voto (!n) dentro de la tarjeta, junto al título del juego.
+ */
+function buildVoteCommandBadge(commandNum) {
+  const el = document.createElement("div");
+  el.className = "option-number option-number--in-card";
+  el.setAttribute("role", "group");
+  el.setAttribute(
+    "aria-label",
+    `Opción ${commandNum}: escribe !${commandNum} en el chat de Twitch`
+  );
+  el.innerHTML = `<span class="option-number__cmd">!${commandNum}</span>`;
+  return el;
+}
+
+/**
  * Crea una tarjeta fija (slots 1 y 2)
  */
 function createFixedCard(index) {
@@ -305,11 +434,7 @@ function createFixedCard(index) {
     }
   }, { once: true });
   
-  // Number badge
-  const number = document.createElement("div");
-  number.className = "option-number big-number";
-  number.textContent = `!${index + 1}`;
-  number.style.cssText = "margin-top:-25px;margin-bottom:8px;z-index:10;";
+  const number = buildVoteCommandBadge(index + 1);
   
   // Card
   const card = document.createElement("div");
@@ -319,10 +444,10 @@ function createFixedCard(index) {
   // Image
   setupCardImage(card, gameTitle, optionData);
   
-  // Title row
+  // Title row (comando + título en una sola franja)
   const top = document.createElement("div");
   top.className = "game-row";
-  top.style.zIndex = '1';
+  top.style.zIndex = "3";
   
   const title = document.createElement("div");
   title.className = "game-title";
@@ -331,6 +456,7 @@ function createFixedCard(index) {
   titleText.style.cssText = "display:inline-block;white-space:nowrap;";
   titleText.textContent = gameTitle;
   title.appendChild(titleText);
+  top.appendChild(number);
   top.appendChild(title);
   
   // Marquee for long titles
@@ -366,7 +492,6 @@ function createFixedCard(index) {
   card.appendChild(top);
   card.appendChild(bottom);
   
-  wrapper.appendChild(number);
   wrapper.appendChild(card);
   wrapper.appendChild(chips);
   gridEl.appendChild(wrapper);
@@ -429,11 +554,7 @@ function createCarouselCard() {
     }
   }, { once: true });
   
-  // Number badge (will update: !3, !4, ..., !10)
-  const number = document.createElement("div");
-  number.className = "option-number big-number";
-  number.textContent = `!3`;
-  number.style.cssText = "margin-top:-25px;margin-bottom:8px;z-index:10;";
+  const number = buildVoteCommandBadge(3);
   
   // Card
   const card = document.createElement("div");
@@ -448,7 +569,7 @@ function createCarouselCard() {
   // Title row
   const top = document.createElement("div");
   top.className = "game-row carousel-content-fade";
-  top.style.zIndex = '1';
+  top.style.zIndex = "3";
   
   const title = document.createElement("div");
   title.className = "game-title";
@@ -457,6 +578,7 @@ function createCarouselCard() {
   titleText.style.cssText = "display:inline-block;white-space:nowrap;";
   titleText.textContent = "";
   title.appendChild(titleText);
+  top.appendChild(number);
   top.appendChild(title);
   
   // Votes badge
@@ -483,7 +605,6 @@ function createCarouselCard() {
   chips.className = 'voter-inline carousel-content-fade';
   chips.style.cssText = 'z-index:5;left:0px;';
   
-  wrapper.appendChild(number);
   wrapper.appendChild(card);
   wrapper.appendChild(chips);
   gridEl.appendChild(wrapper);
@@ -521,8 +642,12 @@ function setCarouselContent(carouselIdx, animate = true) {
   const doUpdate = () => {
     carouselDisplayIndex = carouselIdx;
     
-    // Update number badge
-    carouselElements.numberBadge.textContent = `!${globalIndex + 1}`;
+    const cmdEl = carouselElements.numberBadge.querySelector(".option-number__cmd");
+    if (cmdEl) cmdEl.textContent = `!${globalIndex + 1}`;
+    carouselElements.numberBadge.setAttribute(
+      "aria-label",
+      `Opción ${globalIndex + 1}: escribe !${globalIndex + 1} en el chat de Twitch`
+    );
     
     // Update title
     carouselElements.titleText.textContent = gameTitle;
@@ -561,31 +686,25 @@ function setCarouselContent(carouselIdx, animate = true) {
   };
   
   if (animate) {
-    // Fade out
-    const fadeEls = carouselElements.card.querySelectorAll('.carousel-content-fade');
+    const fadeEls = carouselElements.card.querySelectorAll(".carousel-content-fade");
     const chipsFade = carouselElements.chipsContainer;
-    const badgeFade = carouselElements.numberBadge;
     
-    fadeEls.forEach(el => el.classList.add('c-fade-out'));
-    chipsFade.classList.add('c-fade-out');
-    badgeFade.classList.add('c-fade-out');
+    fadeEls.forEach(el => el.classList.add("c-fade-out"));
+    chipsFade.classList.add("c-fade-out");
     
     setTimeout(() => {
       doUpdate();
       
       fadeEls.forEach(el => {
-        el.classList.remove('c-fade-out');
-        el.classList.add('c-fade-in');
+        el.classList.remove("c-fade-out");
+        el.classList.add("c-fade-in");
       });
-      chipsFade.classList.remove('c-fade-out');
-      chipsFade.classList.add('c-fade-in');
-      badgeFade.classList.remove('c-fade-out');
-      badgeFade.classList.add('c-fade-in');
+      chipsFade.classList.remove("c-fade-out");
+      chipsFade.classList.add("c-fade-in");
       
       setTimeout(() => {
-        fadeEls.forEach(el => el.classList.remove('c-fade-in'));
-        chipsFade.classList.remove('c-fade-in');
-        badgeFade.classList.remove('c-fade-in');
+        fadeEls.forEach(el => el.classList.remove("c-fade-in"));
+        chipsFade.classList.remove("c-fade-in");
       }, 300);
     }, 250);
   } else {
@@ -640,6 +759,15 @@ function updateVoteBars() {
   
   const cards = gridEl.querySelectorAll(".card");
   
+  // Find leader indices
+  const maxVotes = Math.max(...validVotes);
+  const leaderIndices = [];
+  if (maxVotes > 0) {
+    validVotes.forEach((v, idx) => {
+      if (v === maxVotes) leaderIndices.push(idx);
+    });
+  }
+  
   visibleOptions.forEach((optionIdx, cardIdx) => {
     const safeCount = validVotes[optionIdx] || 0;
     const percent = Math.round((safeCount / totalForPercent) * 100) || 0;
@@ -651,6 +779,16 @@ function updateVoteBars() {
     
     if (counter) counter.textContent = `${Math.round(Number(safeCount) * 10) / 10}`;
     if (label) label.textContent = `${percent}%`;
+  });
+
+  // Assign is-leader class to card wrappers
+  const wrappers = gridEl.querySelectorAll(".card-wrapper");
+  wrappers.forEach((wrapper, cardIdx) => {
+    if (leaderIndices.includes(cardIdx)) {
+      wrapper.classList.add("is-leader");
+    } else {
+      wrapper.classList.remove("is-leader");
+    }
   });
 }
 
@@ -717,6 +855,7 @@ function updateVoterLists() {
 function refreshUI() {
   updateVoteBars();
   updateVoterLists();
+  updateStatsPanel();
   checkForWinner();
 }
 
@@ -1220,11 +1359,17 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
         const existingData = userVotes.get(targetUserKey);
         if (!existingData) continue;
 
+        const oldWeight = existingData.fixedPoints ?? calculateTotalWeight(existingData.level, existingData.extraBonus || 0);
+
         userVotes.set(targetUserKey, {
           ...existingData,
           fixedPoints: newPoints,
         });
         updated++;
+
+        if (existingData.choice >= 0 && existingData.choice < total) {
+          recordVoteIncrease(existingData.choice, newPoints - oldWeight);
+        }
       }
 
       recalculateAllVotes();
@@ -1307,8 +1452,9 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
       const clampedPoints = Math.min(points, MAX_USER_WEIGHT);
       
       const existingData = userVotes.get(targetUser);
+      let oldWeight = 0;
       if (existingData && existingData.choice >= 0 && existingData.choice < total) {
-        const oldWeight = existingData.fixedPoints ?? calculateTotalWeight(existingData.level, existingData.extraBonus || 0);
+        oldWeight = existingData.fixedPoints ?? calculateTotalWeight(existingData.level, existingData.extraBonus || 0);
         votesByIndex[existingData.choice] = Math.max(0, votesByIndex[existingData.choice] - oldWeight);
       }
       
@@ -1325,6 +1471,12 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
       userDisplayNames.set(targetUser, targetUser);
       votesByIndex[optionIndex] += clampedPoints;
       
+      if (existingData && existingData.choice === optionIndex) {
+        recordVoteIncrease(optionIndex, clampedPoints - oldWeight);
+      } else {
+        recordVoteIncrease(optionIndex, clampedPoints);
+      }
+
       console.log(`[Admin] ${userKey} assigned ${targetUser} to option ${optionIndex + 1} with ${clampedPoints} fixed points${points !== clampedPoints ? ` (capped from ${points})` : ''}.`);
       
       refreshUI();
@@ -1408,12 +1560,14 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
       const updatedWeight = userData.fixedPoints ?? calculateTotalWeight(userData.level, userData.extraBonus);
       
       votesByIndex[userData.choice] += updatedWeight;
+      recordVoteIncrease(voteIndex, updatedWeight);
       console.log(`[ExtraVote] User ${userKey} redeemed bonus and switched to option ${voteIndex + 1}. Weight: ${updatedWeight}`);
     } else {
       // Just update current choice weight
       const newWeight = userData.fixedPoints ?? calculateTotalWeight(userData.level, userData.extraBonus);
       if (userData.choice >= 0 && userData.choice < total) {
         votesByIndex[userData.choice] = votesByIndex[userData.choice] - oldWeight + newWeight;
+        recordVoteIncrease(userData.choice, newWeight - oldWeight);
       }
       console.log(`[ExtraVote] User ${userKey} redeemed bonus on current option ${userData.choice + 1}. New weight: ${newWeight}`);
     }
@@ -1455,6 +1609,11 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
 
     // IMPORTANTE: guardar ANTES de recalcular para que el recálculo use datos actualizados
     userVotes.set(userKey, userData);
+
+    if (userData.choice >= 0 && userData.choice < total) {
+      recordVoteIncrease(userData.choice, bonusValue);
+    }
+
     recalculateAllVotes();
     
     console.log(`[Extra] User ${userKey} added +${bonusValue.toFixed(1)} pts. Total bonus: ${userData.extraBonus.toFixed(1)}`);
@@ -1554,6 +1713,12 @@ async function processVote(userKey, voteIndex, existingData) {
       votesByIndex[currentData.choice] = Math.max(0, votesByIndex[currentData.choice] - oldWeight);
       
       console.log(`[Vote] User ${userKey} switching from option ${currentData.choice + 1} (-${oldWeight}) to option ${voteIndex + 1} (+${newWeight})`);
+      recordVoteIncrease(voteIndex, newWeight);
+    } else {
+      const hasVotedBefore = currentData && currentData.choice >= 0 && currentData.choice < total;
+      if (!hasVotedBefore) {
+        recordVoteIncrease(voteIndex, newWeight);
+      }
     }
     
     const newData = {

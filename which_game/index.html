@@ -24,66 +24,118 @@
 
     <div class="game-hud overlay" id="overlay">
       <div class="hud-body">
-        <!-- LEFT: Title Panel (F1 Red) -->
-        <section class="hud-panel title-panel">
-          <div
-            class="panel-list"
-            id="menuList"
-            style="
-              padding: 0 105px 0 20px;
-              justify-content: center;
-              display: flex;
-              box-sizing: border-box;
-              width: 100%;
-            "
-          >
-            <div
-              class="header"
-              style="
-                justify-content: center;
-                text-align: center;
-                margin: 0;
-                width: 100%;
-              "
-            >
+        <!-- LEFT: título / marca del overlay -->
+        <section
+          class="hud-panel title-panel"
+          aria-label="Título de la votación"
+        >
+          <div class="title-panel__glow" aria-hidden="true"></div>
+          <div class="title-panel__rail" aria-hidden="true"></div>
+          <div class="panel-list title-panel__inner" id="menuList">
+            <!-- Panel de Horarios -->
+            <div class="stats-panel" style="margin-bottom: 1.5rem">
+              <h2 class="stats-panel__title">Horarios</h2>
               <div
-                class="title"
-                style="flex-direction: column; align-items: center; width: 100%"
+                class="stats-panel__list"
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem"
               >
-                <span
-                  style="
-                    font-size: 32px;
-                    text-shadow: 2px 3px 6px rgba(0, 0, 0, 0.6);
-                    color: #fff;
-                    line-height: 1.1;
-                    font-weight: 900;
-                    white-space: normal;
-                    text-align: center;
-                    letter-spacing: 2px;
-                    font-family: var(--font-display);
-                  "
-                  >VOTACIÓN DEL<br />PRÓXIMO JUEGO</span
+                <div class="stat-card">
+                  <div class="stat-card__rail"></div>
+                  <div class="stat-card__glow"></div>
+                  <div class="stat-card__label">Tardes</div>
+                  <div
+                    class="stat-card__value"
+                    style="
+                      font-size: 1.8rem;
+                      font-family: &quot;Outfit&quot;, sans-serif;
+                    "
+                  >
+                    17:00
+                  </div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-card__rail"></div>
+                  <div class="stat-card__glow"></div>
+                  <div class="stat-card__label">Noches</div>
+                  <div
+                    class="stat-card__value"
+                    style="
+                      font-size: 1.8rem;
+                      font-family: &quot;Outfit&quot;, sans-serif;
+                    "
+                  >
+                    22:00
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <header class="title-panel__header">
+              <p class="title-panel__kicker">Encuesta en chat</p>
+              <h1 class="title-panel__title">
+                <span class="title-panel__line">Votación del</span>
+                <span class="title-panel__line title-panel__line--accent"
+                  >próximo juego</span
                 >
+              </h1>
+            </header>
+
+            <!-- Panel de estadísticas premium de F1 -->
+            <div class="stats-panel">
+              <h2 class="stats-panel__title">Estadísticas</h2>
+              <div class="stats-panel__list">
+                <!-- Tarjeta 1: Puntos restantes -->
+                <div class="stat-card" id="stat-card-pts">
+                  <div class="stat-card__rail"></div>
+                  <div class="stat-card__glow"></div>
+                  <div class="stat-card__label">Falta para elegir</div>
+                  <div class="stat-card__value" id="stats-pts-needed">-</div>
+                  <div class="stat-card__sub" id="stats-pts-needed-sub">
+                    Esperando votos...
+                  </div>
+                </div>
+
+                <!-- Tarjeta 2: Top Votante -->
+                <div class="stat-card" id="stat-card-voter">
+                  <div class="stat-card__rail"></div>
+                  <div class="stat-card__glow"></div>
+                  <div class="stat-card__label">Top Votante</div>
+                  <div class="stat-card__value" id="stats-top-voter">-</div>
+                  <div class="stat-card__sub" id="stats-top-voter-sub">
+                    Nadie ha votado aún
+                  </div>
+                </div>
+
+                <!-- Tarjeta 3: Juego en racha -->
+                <div class="stat-card" id="stat-card-streak">
+                  <div class="stat-card__rail"></div>
+                  <div class="stat-card__glow"></div>
+                  <div class="stat-card__label">En racha 🔥</div>
+                  <div class="stat-card__value" id="stats-fastest-game">-</div>
+                  <div class="stat-card__sub" id="stats-fastest-game-sub">
+                    Sin actividad reciente
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- RIGHT: Grid Panel -->
-        <section class="hud-panel">
-          <div class="panel-list" id="contentArea">
+        <!-- RIGHT: rejilla de votación -->
+        <section class="hud-panel grid-panel">
+          <div class="panel-list content-stack" id="contentArea">
             <!-- New Hint Header matching Left Panel style -->
             <div class="hint-header">
-              <span id="hint">VOTA CON !1-!6<br>EN EL CHAT</span>
+              <span id="hint">VOTA CON !1-!6<br />EN EL CHAT</span>
             </div>
-            
+
             <div class="grid" id="grid">
               <!-- Game cards (populated by JS) -->
             </div>
           </div>
         </section>
       </div>
-      <div class="status" id="status" style="display:none"></div>
+      <div class="status" id="status" style="display: none"></div>
     </div>
     <div class="minimized" id="resetBtn" style="display: none; cursor: pointer">
       Reset encuesta
