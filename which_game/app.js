@@ -49,6 +49,7 @@ const storageKeys = {
   voterNames: `wg_${config.channelName}_voter_names`,
   levels: `wg_${config.channelName}_levels`,
   extraVotes: `wg_${config.channelName}_extra_votes`,
+  rawgImages: `wg_${config.channelName}_rawg_images`,
 };
 
 // ============================================================================
@@ -293,21 +294,59 @@ async function fetchGameImage(title) {
   return null;
 }
 
-// Image cache for carousel games
+// Local fallbacks for default games when RAWG is down or offline
+const DEFAULT_LOCAL_IMAGES = {
+  "metro last light": "imagenes/metro_last_light.png",
+  "mafia the old country": "imagenes/mafia_old_country.png",
+  "gta iv": "imagenes/gta_iv.png",
+  "dead rising 3": "imagenes/dead_rising_3.png",
+  "need for speed most wanted": "imagenes/nfs_most_wanted.png",
+  "shadow of the tomb raider": "imagenes/tomb_raider.png"
+};
+
+// Image cache (in-memory Map + localStorage persistence)
 const imageCache = new Map();
 
-async function resolveGameImage(title, optionData) {
-  // Check cache first
-  if (imageCache.has(title)) return imageCache.get(title);
-  
-  let imageUrl = null;
-  if (optionData && optionData.image && optionData.image !== "auto") {
-    imageUrl = optionData.image;
-  } else {
-    imageUrl = await fetchGameImage(title);
+function saveRawgImageCache() {
+  try {
+    const obj = {};
+    for (const [key, val] of imageCache.entries()) {
+      obj[key] = val;
+    }
+    localStorage.setItem(storageKeys.rawgImages, JSON.stringify(obj));
+  } catch (e) {
+    console.error('[Storage] Error saving RAWG image cache:', e);
   }
-  
-  if (imageUrl) imageCache.set(title, imageUrl);
+}
+
+async function resolveGameImage(title, optionData) {
+  if (!title) return null;
+  const key = title.trim().toLowerCase();
+
+  // 1. If optionData has a non-auto image specified, use it directly
+  if (optionData && optionData.image && optionData.image !== "auto") {
+    return optionData.image;
+  }
+
+  // 2. Check in-memory/localStorage cache
+  if (imageCache.has(key)) {
+    return imageCache.get(key);
+  }
+
+  // 3. Attempt fetching from RAWG API
+  let imageUrl = await fetchGameImage(title);
+
+  // 4. Fallback to local generated artwork if RAWG fails or is down
+  if (!imageUrl && DEFAULT_LOCAL_IMAGES[key]) {
+    imageUrl = DEFAULT_LOCAL_IMAGES[key];
+  }
+
+  // 5. Cache result if found
+  if (imageUrl) {
+    imageCache.set(key, imageUrl);
+    saveRawgImageCache();
+  }
+
   return imageUrl;
 }
 
@@ -333,6 +372,18 @@ function loadState() {
   try {
     const userVotesRaw = localStorage.getItem(storageKeys.voters);
     const displayNamesRaw = localStorage.getItem(storageKeys.voterNames);
+    const rawgImagesRaw = localStorage.getItem(storageKeys.rawgImages);
+    
+    if (rawgImagesRaw) {
+      try {
+        const obj = JSON.parse(rawgImagesRaw);
+        for (const [k, v] of Object.entries(obj)) {
+          if (k && v) imageCache.set(k.toLowerCase().trim(), v);
+        }
+      } catch (err) {
+        console.error('[Storage] Error parsing RAWG image cache:', err);
+      }
+    }
     
     if (displayNamesRaw) {
       const obj = JSON.parse(displayNamesRaw);
@@ -501,23 +552,21 @@ function createFixedCard(index) {
  * Configura la imagen de fondo de una tarjeta
  */
 function setupCardImage(card, gameTitle, optionData) {
-  let imageUrl = optionData?.image || null;
-  const objPos = optionData?.objectPosition || 'center center';
+  const opt = optionData || getOptionByTitle(gameTitle);
+  const objPos = opt?.objectPosition || 'center center';
   
-  if (!imageUrl || imageUrl === "auto") {
-    fetchGameImage(gameTitle).then(img => {
-      if (img) {
-        imageCache.set(gameTitle, img);
-        applyCardImage(card, img, objPos);
-      }
-    });
-  } else {
-    imageCache.set(gameTitle, imageUrl);
-    applyCardImage(card, imageUrl, objPos);
-  }
+  resolveGameImage(gameTitle, opt).then(img => {
+    if (img) {
+      applyCardImage(card, img, objPos, gameTitle);
+    } else {
+      const key = gameTitle ? gameTitle.trim().toLowerCase() : '';
+      const fallback = DEFAULT_LOCAL_IMAGES[key] || null;
+      applyCardImage(card, fallback, objPos, gameTitle);
+    }
+  });
 }
 
-function applyCardImage(card, imageUrl, objPos = 'center center') {
+function applyCardImage(card, imageUrl, objPos = 'center center', gameTitle = '') {
   card.style.background = "none";
   card.style.overflow = "hidden";
   
@@ -525,6 +574,11 @@ function applyCardImage(card, imageUrl, objPos = 'center center') {
   const existing = card.querySelector('.card-bg-img');
   if (existing) existing.remove();
   
+  if (!imageUrl) {
+    card.style.background = "linear-gradient(135deg, #1f293d 0%, #111827 100%)";
+    return;
+  }
+
   const bgImg = document.createElement('img');
   bgImg.className = 'card-bg-img';
   bgImg.src = imageUrl;
@@ -532,6 +586,19 @@ function applyCardImage(card, imageUrl, objPos = 'center center') {
   bgImg.decoding = 'async';
   bgImg.loading = 'lazy';
   bgImg.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:${objPos};z-index:0;pointer-events:none;`;
+  
+  bgImg.onerror = () => {
+    console.warn(`[ImageLoad] Failed to load image: ${imageUrl}`);
+    const key = gameTitle ? gameTitle.trim().toLowerCase() : '';
+    const localFallback = DEFAULT_LOCAL_IMAGES[key];
+    if (localFallback && !bgImg.src.endsWith(localFallback)) {
+      bgImg.src = localFallback;
+    } else {
+      card.style.background = "linear-gradient(135deg, #1f293d 0%, #111827 100%)";
+      bgImg.remove();
+    }
+  };
+
   card.prepend(bgImg);
 }
 
@@ -664,10 +731,11 @@ function setCarouselContent(carouselIdx, animate = true) {
     }, 50);
     
     // Update image
-    const cachedImg = imageCache.get(gameTitle);
+    const key = gameTitle ? gameTitle.trim().toLowerCase() : '';
+    const cachedImg = imageCache.get(key);
     const objPos = optionData?.objectPosition || 'center center';
     if (cachedImg) {
-      applyCardImage(carouselElements.card, cachedImg, objPos);
+      applyCardImage(carouselElements.card, cachedImg, objPos, gameTitle);
     } else {
       // Remove existing image
       const existing = carouselElements.card.querySelector('.card-bg-img');
@@ -675,8 +743,8 @@ function setCarouselContent(carouselIdx, animate = true) {
       carouselElements.card.style.background = '';
       
       resolveGameImage(gameTitle, optionData).then(img => {
-        if (img && carouselDisplayIndex === carouselIdx) {
-          applyCardImage(carouselElements.card, img, objPos);
+        if (carouselDisplayIndex === carouselIdx) {
+          applyCardImage(carouselElements.card, img, objPos, gameTitle);
         }
       });
     }
@@ -1599,6 +1667,10 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
       console.log(`[Extra] Denied: Channel is offline.`);
       return;
     }
+
+    // Refrescar nivel desde Firestore para usar siempre el nivel actual
+    const freshLevel = await fetchUserLevel(userKey);
+    if (freshLevel > 0) userData.level = freshLevel;
 
     // Calcular valor: 1% del nivel (mínimo 0.2), redondeado a 1 decimal
     const bonusValue = Math.round(Math.max(0.2, userData.level * 0.01) * 10) / 10;

@@ -2,12 +2,12 @@
 // JUEGOS FIJOS — Comandos !1 a !6
 // ═══════════════════════════════════════════════════
 window.OPTIONS_DATA = [
-  { title: "METRO LAST LIGHT", image: "auto" },
+  { title: "Metro Last Light", image: "auto" },
   { title: "MAFIA THE OLD COUNTRY", image: "auto" },
-  { title: "THE WITCHER 2", image: "auto" },
-  { title: "Banishers: Ghosts of New Eden", image: "auto" },
-  { title: "GTA SAN ANDREAS", image: "auto" },
-  { title: "Forza Horizon 6", image: "auto", objectPosition: "left" },
+  { title: "GTA IV", image: "auto" },
+  { title: "DEAD RISING 3", image: "auto" },
+  { title: "Need for speed Most Wanted", image: "auto" },
+  { title: "Shadow of the Tomb Raider", image: "auto", objectPosition: "right" },
 ];
 
 // ═══════════════════════════════════════════════════
