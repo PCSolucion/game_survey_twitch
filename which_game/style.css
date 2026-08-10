@@ -21,31 +21,34 @@
 }
 
 :root {
-  /* Acento principal — #008ec2 y tonalidades (antes paleta tipo F1 rojo) */
-  --f1-primary: #008ec2;
-  --f1-primary-rgb: 0, 142, 194;
-  --f1-primary-bright: #00b4f5;
-  --f1-primary-dark: #006a93;
+  /* Cyberpunk Primary Accent (#8163F6 / RGB: 129, 99, 246) */
+  --cyber-purple: #8163F6;
+  --cyber-purple-rgb: 129, 99, 246;
 
-  /* Colores por opción de voto — misma familia que #008ec2 (cian / teal) */
-  --slot-1: #085a73;
-  --slot-1-rgb: 8, 90, 115;
-  --slot-2: #008ec2;
-  --slot-2-rgb: 0, 142, 194;
-  --slot-3: #00a3c4;
-  --slot-3-rgb: 0, 163, 196;
-  --slot-4: #2d8eb8;
-  --slot-4-rgb: 45, 142, 184;
-  --slot-5: #4a9eb8;
-  --slot-5-rgb: 74, 158, 184;
-  --slot-6: #5fa9c4;
-  --slot-6-rgb: 95, 169, 196;
+  --f1-primary: #8163F6;
+  --f1-primary-rgb: 129, 99, 246;
+  --f1-primary-bright: #9e85f8;
+  --f1-primary-dark: #6342d4;
+
+  /* Slots / Card accents in Cyberpunk purple family */
+  --slot-1: #8163F6;
+  --slot-1-rgb: 129, 99, 246;
+  --slot-2: #9e85f8;
+  --slot-2-rgb: 158, 133, 248;
+  --slot-3: #704ee7;
+  --slot-3-rgb: 112, 78, 231;
+  --slot-4: #a792f9;
+  --slot-4-rgb: 167, 146, 249;
+  --slot-5: #6342d4;
+  --slot-5-rgb: 99, 66, 212;
+  --slot-6: #8163F6;
+  --slot-6-rgb: 129, 99, 246;
 
   --f1-white: #ffffff;
-  --f1-black: #0f1014;
-  --f1-black-rgb: 15, 16, 20;
-  --f1-dark: #1a1a2e;
-  --f1-dark-rgb: 26, 26, 46;
+  --f1-black: #0a0a0f;
+  --f1-black-rgb: 10, 10, 15;
+  --f1-dark: #0d0d16;
+  --f1-dark-rgb: 13, 13, 22;
 
   --f1-gray-100: #f0f0f0;
   --f1-gray-200: #c8c8c8;
@@ -56,10 +59,10 @@
   --f1-gray-700: #1e1e30;
 
   /* Accent Colors */
-  --f1-green: #00d2be;
-  --f1-green-rgb: 0, 210, 190;
-  --f1-yellow: #ffd700;
-  --f1-purple: #8A29A4;
+  --f1-green: #00f0ff;
+  --f1-green-rgb: 0, 240, 255;
+  --f1-yellow: #ffb800;
+  --f1-purple: #8163F6;
 
   /* Semantic Tokens */
   --accent: var(--f1-primary);
@@ -69,37 +72,37 @@
 
   --cyber-accent: var(--f1-primary);
   --cyber-accent-rgb: var(--f1-primary-rgb);
-  --cyber-cyan: var(--f1-green);
-  --cyber-cyan-rgb: var(--f1-green-rgb);
+  --cyber-cyan: #00f0ff;
+  --cyber-cyan-rgb: 0, 240, 255;
 
   --overlay-bg: transparent;
   --bg-dark: transparent;
-  --bg-panel: rgba(var(--f1-black-rgb), 0.88);
-  --card-bg: rgba(var(--f1-black-rgb), 0.85);
+  --bg-panel: rgba(10, 10, 15, 0.85);
+  --card-bg: rgba(13, 13, 22, 0.80);
 
-  --ok: var(--f1-green);
-  --warn: var(--f1-yellow);
-  --text: var(--f1-white);
-  --text-dim: rgba(255, 255, 255, 0.6);
-  --text-faint: rgba(255, 255, 255, 0.3);
+  --ok: #00f0ff;
+  --warn: #ffb800;
+  --text: #ffffff;
+  --text-dim: rgba(255, 255, 255, 0.65);
+  --text-faint: rgba(255, 255, 255, 0.35);
 
-  /* Fonts — aligned with f1-theme.css */
-  --font-primary: "Titillium Web", sans-serif;
-  --font-tech: "JetBrains Mono", monospace;
-  --font-display: "Formula1", "Titillium Web", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  /* Fonts — aligned with introbs Cyberpunk HUD */
+  --font-primary: "Rajdhani", sans-serif;
+  --font-tech: "Share Tech Mono", "JetBrains Mono", monospace;
+  --font-display: "Orbitron", sans-serif;
+  --font-mono: "Share Tech Mono", "JetBrains Mono", monospace;
 
   /* Transitions */
   --transition-speed: 0.3s;
   --transition-ease: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Layout / superficies (panel derecho + cards) */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  /* Layout / superficies */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
   --radius-pill: 9999px;
-  --stroke-hairline: rgba(255, 255, 255, 0.09);
-  --surface-glass: rgba(10, 12, 16, 0.55);
+  --stroke-hairline: rgba(255, 255, 255, 0.08);
+  --surface-glass: rgba(10, 10, 15, 0.65);
 }
 
 /* ═══════════════════
@@ -659,18 +662,18 @@ body {
    GAME TITLE — continúa la misma franja que !n
    ═══════════════════ */
 .game-title {
-  font-size: 17px !important;
+  font-size: 22px !important;
   font-family: var(--font-display);
   font-weight: 700;
   line-height: 1.15;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.65);
   color: var(--f1-white);
   background: transparent;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  padding: 10px 14px 10px 12px;
+  padding: 10px 12px;
   border: none;
   border-radius: 0;
   box-shadow: none;
@@ -678,6 +681,7 @@ body {
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
   display: block;
 }
 

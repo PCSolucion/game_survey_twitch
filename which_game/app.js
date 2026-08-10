@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-import { firebaseConfig } from "./api.js";
+import { firebaseConfig, igdbConfig } from "./api.js";
 import { blacklist } from "./blacklist.js";
 
 const app = initializeApp(firebaseConfig);
@@ -49,7 +49,7 @@ const storageKeys = {
   voterNames: `wg_${config.channelName}_voter_names`,
   levels: `wg_${config.channelName}_levels`,
   extraVotes: `wg_${config.channelName}_extra_votes`,
-  rawgImages: `wg_${config.channelName}_rawg_images`,
+  igdbImages: `wg_${config.channelName}_igdb_images`,
 };
 
 // ============================================================================
@@ -277,77 +277,187 @@ function getOptionDataByIndex(globalIndex) {
   return carousel[globalIndex - FIXED_COUNT] || null;
 }
 
+// ============================================================================
+// IGDB — Búsqueda de imágenes directa desde el navegador
+// ============================================================================
+const IGDB_CLIENT_ID = igdbConfig.clientId;
+const IGDB_CLIENT_SECRET = igdbConfig.clientSecret;
+
+let igdbToken = null;
+let igdbTokenExpires = 0;
+
 /**
- * Busca una imagen de juego en RAWG por título
+ * Obtiene un token OAuth2 de Twitch (Client Credentials Grant).
  */
-async function fetchGameImage(title) {
-  if (!firebaseConfig.rawgKey) return null;
-  try {
-    const response = await fetch(`https://api.rawg.io/api/games?key=${firebaseConfig.rawgKey}&search=${encodeURIComponent(title)}&page_size=1`);
-    const data = await response.json();
-    if (data.results && data.results.length > 0) {
-      return data.results[0].background_image;
-    }
-  } catch (e) {
-    console.error('[RAWG] Error searching image:', e);
-  }
-  return null;
+async function getIgdbToken() {
+  if (igdbToken && Date.now() < igdbTokenExpires) return igdbToken;
+
+  const params = new URLSearchParams({
+    client_id: IGDB_CLIENT_ID,
+    client_secret: IGDB_CLIENT_SECRET,
+    grant_type: "client_credentials",
+  });
+
+  const res = await fetch("https://id.twitch.tv/oauth2/token", {
+    method: "POST",
+    body: params,
+  });
+
+  if (!res.ok) throw new Error(`Token error: ${res.status}`);
+  const data = await res.json();
+  igdbToken = data.access_token;
+  igdbTokenExpires = Date.now() + (data.expires_in - 60) * 1000;
+  console.log("[IGDB] Token obtenido");
+  return igdbToken;
 }
 
-// Local fallbacks for default games when RAWG is down or offline
-const DEFAULT_LOCAL_IMAGES = {
-  "metro last light": "imagenes/metro_last_light.png",
-  "mafia the old country": "imagenes/mafia_old_country.png",
-  "gta iv": "imagenes/gta_iv.png",
-  "dead rising 3": "imagenes/dead_rising_3.png",
-  "need for speed most wanted": "imagenes/nfs_most_wanted.png",
-  "shadow of the tomb raider": "imagenes/tomb_raider.png"
-};
+/**
+ * Busca un juego en IGDB y devuelve la URL de la imagen.
+ * Prioridad: screenshots > cover > artworks
+ */
+async function fetchIgdbImage(title) {
+  try {
+    const token = await getIgdbToken();
 
-// Image cache (in-memory Map + localStorage persistence)
+    const body = `search "${title.replace(/"/g, '\\"')}";
+fields name, screenshots.image_id, cover.image_id, artworks.image_id;
+limit 1;`;
+
+    const res = await fetch("https://api.igdb.com/v4/games", {
+      method: "POST",
+      headers: {
+        "Client-ID": IGDB_CLIENT_ID,
+        "Authorization": `Bearer ${token}`,
+        "Accept": "application/json",
+      },
+      body,
+    });
+
+    if (!res.ok) {
+      console.warn(`[IGDB] Error ${res.status} buscando "${title}"`);
+      return null;
+    }
+
+    let results = await res.json();
+
+    // Si no hay resultados, reintento con búsqueda por nombre exacto (case-insensitive)
+    if (!results || results.length === 0) {
+      const altBody = `fields name, screenshots.image_id, cover.image_id, artworks.image_id;
+where name ~ "${title.replace(/"/g, '\\"')}";
+limit 1;`;
+
+      const altRes = await fetch("https://api.igdb.com/v4/games", {
+        method: "POST",
+        headers: {
+          "Client-ID": IGDB_CLIENT_ID,
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/json",
+        },
+        body: altBody,
+      });
+
+      if (altRes.ok) results = await altRes.json();
+    }
+
+    if (!results || results.length === 0) return null;
+
+    const game = results[0];
+    let imageId = null;
+
+    if (game.screenshots?.length > 0) {
+      imageId = game.screenshots[0].image_id;
+    } else if (game.cover?.image_id) {
+      imageId = game.cover.image_id;
+    } else if (game.artworks?.length > 0) {
+      imageId = game.artworks[0].image_id;
+    }
+
+    if (!imageId) return null;
+
+    const url = `https://images.igdb.com/igdb/image/upload/t_720p/${imageId}.jpg`;
+    console.log(`[IGDB] "${title}" → ${url}`);
+    return url;
+  } catch (e) {
+    console.error(`[IGDB] Error buscando "${title}":`, e);
+    return null;
+  }
+}
+
+// Cache de imágenes en localStorage
 const imageCache = new Map();
 
-function saveRawgImageCache() {
+function loadImageCache() {
   try {
-    const obj = {};
-    for (const [key, val] of imageCache.entries()) {
-      obj[key] = val;
+    const raw = localStorage.getItem(storageKeys.igdbImages);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      for (const [k, v] of Object.entries(obj)) {
+        if (k && v) imageCache.set(k, v);
+      }
     }
-    localStorage.setItem(storageKeys.rawgImages, JSON.stringify(obj));
   } catch (e) {
-    console.error('[Storage] Error saving RAWG image cache:', e);
+    console.error('[IGDB] Error cargando cache:', e);
   }
 }
 
+function saveImageCache() {
+  try {
+    const obj = Object.fromEntries(imageCache.entries());
+    localStorage.setItem(storageKeys.igdbImages, JSON.stringify(obj));
+  } catch (e) {
+    console.error('[IGDB] Error guardando cache:', e);
+  }
+}
+
+// Cargar cache al inicio
+loadImageCache();
+
+/**
+ * Genera nombre de archivo local (fallback si IGDB falla)
+ */
+function titleToFilename(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    + ".jpg";
+}
+
+/**
+ * Resuelve la imagen de un juego.
+ * 1. Imagen manual en data.js
+ * 2. Cache de IGDB (localStorage)
+ * 3. Búsqueda en IGDB en tiempo real
+ * 4. Fallback a archivo local en imagenes/
+ */
 async function resolveGameImage(title, optionData) {
   if (!title) return null;
-  const key = title.trim().toLowerCase();
 
-  // 1. If optionData has a non-auto image specified, use it directly
+  // 1. Imagen específica (no "auto")
   if (optionData && optionData.image && optionData.image !== "auto") {
     return optionData.image;
   }
 
-  // 2. Check in-memory/localStorage cache
-  if (imageCache.has(key)) {
-    return imageCache.get(key);
+  const cacheKey = title.trim().toLowerCase();
+
+  // 2. Cache
+  if (imageCache.has(cacheKey)) {
+    return imageCache.get(cacheKey);
   }
 
-  // 3. Attempt fetching from RAWG API
-  let imageUrl = await fetchGameImage(title);
-
-  // 4. Fallback to local generated artwork if RAWG fails or is down
-  if (!imageUrl && DEFAULT_LOCAL_IMAGES[key]) {
-    imageUrl = DEFAULT_LOCAL_IMAGES[key];
+  // 3. Buscar en IGDB
+  const igdbUrl = await fetchIgdbImage(title);
+  if (igdbUrl) {
+    imageCache.set(cacheKey, igdbUrl);
+    saveImageCache();
+    return igdbUrl;
   }
 
-  // 5. Cache result if found
-  if (imageUrl) {
-    imageCache.set(key, imageUrl);
-    saveRawgImageCache();
-  }
-
-  return imageUrl;
+  // 4. Fallback a archivo local
+  const localPath = `imagenes/${titleToFilename(title)}`;
+  imageCache.set(cacheKey, localPath);
+  saveImageCache();
+  return localPath;
 }
 
 function saveState() {
@@ -372,18 +482,6 @@ function loadState() {
   try {
     const userVotesRaw = localStorage.getItem(storageKeys.voters);
     const displayNamesRaw = localStorage.getItem(storageKeys.voterNames);
-    const rawgImagesRaw = localStorage.getItem(storageKeys.rawgImages);
-    
-    if (rawgImagesRaw) {
-      try {
-        const obj = JSON.parse(rawgImagesRaw);
-        for (const [k, v] of Object.entries(obj)) {
-          if (k && v) imageCache.set(k.toLowerCase().trim(), v);
-        }
-      } catch (err) {
-        console.error('[Storage] Error parsing RAWG image cache:', err);
-      }
-    }
     
     if (displayNamesRaw) {
       const obj = JSON.parse(displayNamesRaw);

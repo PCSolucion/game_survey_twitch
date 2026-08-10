@@ -7,7 +7,7 @@ window.OPTIONS_DATA = [
   { title: "GTA IV", image: "auto" },
   { title: "DEAD RISING 3", image: "auto" },
   { title: "Need for speed Most Wanted", image: "auto" },
-  { title: "Shadow of the Tomb Raider", image: "auto", objectPosition: "right" },
+  { title: "S.T.A.L.K.E.R. 2: Heart of Chornobyl", image: "auto", objectPosition: "right" },
 ];
 
 // ═══════════════════════════════════════════════════
