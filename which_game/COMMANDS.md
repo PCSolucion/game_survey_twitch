@@ -21,7 +21,8 @@ Esta aplicación permite a los espectadores votar por opciones de juego usando c
 | Comando | Acción |
 |---------|--------|
 | `!reset` o `!reiniciar` | Reinicia la sesión de votación, vuelve a cargar los juegos y restablece los votos. Útil para comenzar una nueva ronda sin recargar la página. |
-| `!start` o `!iniciar` | Inicia la fase de votación (si estaba pausada). Habilita la captura de votos y muestra la overlay. Sólo se permite cuando la transmisión está en vivo. |
+| `!ganador` o `!finalizar` o `!elegir` | Declara como ganador el juego que más votos tenga en ese instante y pausa la votación hasta que se reinicie o se vuelva a iniciar. |
+| `!start` o `!iniciar` o `!iniciar votacion` | Inicia o reactiva la fase de votación. Habilita la captura de votos y muestra la overlay. Sólo se permite cuando la transmisión está en vivo. |
 
 ---
 
@@ -47,7 +48,7 @@ Los números representan los **slots** mostrados en la overlay. Cada slot corres
 
 - Todos los comandos incrementan el conteo de votos para la opción correspondiente.
 - El peso del voto depende del nivel del usuario y posibles bonificaciones (`extraBonus`, `fixedPoints`).
-- Cuando una opción alcanza el umbral definido por `WINNER_THRESHOLD` (100 puntos), la votación se detiene y se declara el ganador.
+- La votación es continua: no hay límite de 100 votos; el streamer decide cuándo jugar el juego más votado o declarar ganador en cualquier momento con `!ganador` / `!finalizar`.
 - Los comandos sólo pueden usarse cuando la transmisión está **en vivo** (verificación mediante `isChannelLive`).
 
 ---

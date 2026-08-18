@@ -65,9 +65,8 @@ let carouselTimerId = null;
 let carouselElements = null;     // DOM refs for the carousel card
 
 // ── Voting state ──
-let votingActive = true;           // false cuando hay un ganador
+let votingActive = true;           // false cuando se finaliza/declara ganador
 let winnerOptionIndex = -1;        // índice de la opción ganadora (-1 = ninguna)
-const WINNER_THRESHOLD = 100;      // puntos necesarios para ganar
 const MAX_USER_WEIGHT = 500;       // cap máximo de votos por usuario
 
 // Mapas de estado de usuarios
@@ -175,9 +174,11 @@ function recordVoteIncrease(gameIndex, pointsDiff) {
 function updateStatsPanel() {
   const total = getTotalOptions();
   
-  // --- 1. PUNTOS PARA ELEGIR ---
+  // --- 1. LÍDER ACTUAL ---
   let leaderIdx = -1;
   let maxVotes = 0;
+  const sum = votesByIndex.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
+
   for (let i = 0; i < total; i++) {
     const v = votesByIndex[i] || 0;
     if (v > maxVotes) {
@@ -187,13 +188,14 @@ function updateStatsPanel() {
   }
   
   if (leaderIdx !== -1 && maxVotes > 0) {
-    const needed = Math.max(0, Math.round((WINNER_THRESHOLD - maxVotes) * 10) / 10);
     const gameName = currentGames[leaderIdx] || `Opción ${leaderIdx + 1}`;
+    const pts = Math.round(maxVotes * 10) / 10;
+    const percent = sum > 0 ? Math.round((maxVotes / sum) * 100) : 0;
     
-    if (statsPtsNeededEl) statsPtsNeededEl.textContent = `${needed} pts`;
-    if (statsPtsNeededSubEl) statsPtsNeededSubEl.textContent = `para ${gameName}`;
+    if (statsPtsNeededEl) statsPtsNeededEl.textContent = gameName;
+    if (statsPtsNeededSubEl) statsPtsNeededSubEl.textContent = `${pts} pts (${percent}% del total)`;
   } else {
-    if (statsPtsNeededEl) statsPtsNeededEl.textContent = `${WINNER_THRESHOLD} pts`;
+    if (statsPtsNeededEl) statsPtsNeededEl.textContent = "-";
     if (statsPtsNeededSubEl) statsPtsNeededSubEl.textContent = "Ningún voto registrado";
   }
   
@@ -1022,42 +1024,41 @@ function refreshUI() {
   updateVoteBars();
   updateVoterLists();
   updateStatsPanel();
-  checkForWinner();
 }
 
 // ============================================================================
-// LÓGICA DE GANADOR
+// LÓGICA DE GANADOR / FINALIZACIÓN BAJO DEMANDA
 // ============================================================================
-
-/**
- * Comprueba si alguna opción ha llegado al umbral y, si es así,
- * para las votaciones y marca el ganador visualmente.
- */
-function checkForWinner() {
-  if (!votingActive) return; // Ya hay un ganador, no re-checar
-
-  const total = getTotalOptions();
-  for (let i = 0; i < total; i++) {
-    if ((votesByIndex[i] || 0) >= WINNER_THRESHOLD) {
-      declareWinner(i);
-      return;
-    }
-  }
-}
 
 function declareWinner(optionIndex) {
-  votingActive = false;
-  winnerOptionIndex = optionIndex;
+  let targetIndex = optionIndex;
+  if (targetIndex === undefined || targetIndex === null || targetIndex < 0) {
+    // Escoger la opción que tenga más votos en este momento
+    let leaderIdx = 0;
+    let maxVotes = -1;
+    const total = getTotalOptions();
+    for (let i = 0; i < total; i++) {
+      const v = votesByIndex[i] || 0;
+      if (v > maxVotes) {
+        maxVotes = v;
+        leaderIdx = i;
+      }
+    }
+    targetIndex = leaderIdx;
+  }
 
-  console.log(`[Winner] Option ${optionIndex + 1} reached ${WINNER_THRESHOLD} votes! Voting stopped.`);
-  setStatus(`🏆 ¡GANADOR: Opción ${optionIndex + 1}! Votación detenida`);
+  votingActive = false;
+  winnerOptionIndex = targetIndex;
+
+  const winnerName = currentGames[targetIndex] || `Opción ${targetIndex + 1}`;
+  console.log(`[Winner] Option ${targetIndex + 1} (${winnerName}) declared winner by streamer! Voting paused.`);
+  setStatus(`🏆 ¡ELEGIDO: ${winnerName}! Votación finalizada`);
 
   // Aplicar clase ganador a la tarjeta correspondiente
   const cards = gridEl.querySelectorAll('.card');
   cards.forEach((card, cardIdx) => {
-    // Las tarjetas fijas tienen índice directo
     if (cardIdx < FIXED_COUNT) {
-      if (cardIdx === optionIndex) {
+      if (cardIdx === targetIndex) {
         card.classList.add('card-winner');
       } else {
         card.classList.add('card-loser');
@@ -1393,8 +1394,15 @@ async function handleChatMessage(username, message, displayName, isExtraVote = f
     return;
   }
 
+  // Comando !ganador / !finalizar / !elegir (solo el streamer) — declara el juego más votado como ganador
+  if ((loweredMessage === "!ganador" || loweredMessage === "!finalizar" || loweredMessage === "!elegir" || loweredMessage === "!parar" || loweredMessage === "!cerrar votacion" || loweredMessage === "!cerrarvotacion")
+      && userKey === config.channelName.toLowerCase()) {
+    declareWinner();
+    return;
+  }
+
   // Comando !iniciar votacion (solo el streamer) — reactiva tras ganador
-  if ((loweredMessage === "!iniciar votacion" || loweredMessage === "!iniciarvotacion" || loweredMessage === "!iniciar votación")
+  if ((loweredMessage === "!iniciar votacion" || loweredMessage === "!iniciarvotacion" || loweredMessage === "!iniciar votación" || loweredMessage === "!start")
       && userKey === config.channelName.toLowerCase()) {
     iniciarVotacion();
     return;
